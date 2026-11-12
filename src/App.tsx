@@ -451,6 +451,8 @@ export default function App() {
       clearSessions(member?.id ?? null);
       setSessions([]);
       setSaveError("");
+      // Removing all local history also withdraws a published scoreboard.
+      if(rankOptedIn && member)void publishRanking(false);
     } catch {
       setSaveError("記録を削除できませんでした。");
     }
