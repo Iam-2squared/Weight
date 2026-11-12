@@ -394,6 +394,17 @@ export default function App() {
             <span className="section-eyebrow">LIVE COUNTER</span>
             <h1>腕立て伏せ</h1>
           </div>
+          <aside className="orientation-warning" role="status" aria-label="スマホを横向きにしてください">
+            <svg className="orientation-sign" viewBox="0 0 72 68" width="62" height="60" aria-hidden="true">
+              <path d="M36 3 Q38 3 40 7 L69 57 Q72 63 64 65 H8 Q0 65 3 57 L32 7 Q34 3 36 3 Z" fill="#F8CC30" stroke="#4D3C07" strokeWidth="3.2" strokeLinejoin="round"/>
+              <path d="M36 21 V42" stroke="#4D3C07" strokeWidth="6" strokeLinecap="round"/>
+              <circle cx="36" cy="53" r="3.4" fill="#4D3C07"/>
+            </svg>
+            <div>
+              <strong>横向き！</strong>
+              <span>スマホを横にして全身を映そう</span>
+            </div>
+          </aside>
           <section className="workout measuring-workout" aria-label="腕立て伏せ計測">
             <div className="camera">
               <video ref={videoRef} muted playsInline autoPlay className={facing==="user"?"mirrored":""} aria-label="カメラ映像"/>
