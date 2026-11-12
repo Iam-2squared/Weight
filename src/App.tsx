@@ -468,7 +468,7 @@ export default function App() {
     : null;
 
   return (
-    <div className={"app-shell" + (measuring ? " is-measuring" : "")}>
+    <div className={"app-shell" + (measuring ? " is-measuring" : "") + (!measuring && tab==="ranking" ? " is-ranking" : "")}>
       <header className="app-header">
         {measuring ? (
           <>
@@ -535,8 +535,8 @@ export default function App() {
           <p className="measure-hint">カメラを横向きに固定して全身を映してください</p>
         </main>
       ) : (
-        <main className="app-main tabs-main">
-          <div className="tab-content" key={tab}>
+        <main className={"app-main tabs-main" + (tab==="ranking"?" ranking-app-main":"")}>
+          <div className={"tab-content" + (tab==="ranking"?" ranking-tab-content":"")} key={tab}>
             {tab==="daily" && <DailyPage sessions={sessions} onChallenge={()=>setTab("challenge")}/>}
             {tab==="challenge" && <ChallengePage sessions={sessions} onStart={enterMeasurement}/>}
             {tab==="ranking" && <RankingPage sessions={sessions} member={member}
