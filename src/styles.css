@@ -6,16 +6,18 @@
   background: #F4F2EC;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html { min-height: 100%; }
-body { margin: 0; min-width: 320px; }
+html { min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+body { margin: 0; min-width: 320px; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+#root { min-height: 100%; }
 button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 button:focus-visible { outline: 3px solid #9FB3C8; outline-offset: 3px; }
 button:disabled { opacity: .55; cursor: wait; }
-.app-shell { min-height: 100svh; display: flex; flex-direction: column; }
+.app-shell { min-height: 100svh; min-height: 100dvh; height: auto; display: flex; flex-direction: column; overflow: visible; }
 .app-header {
-  width: 100%; min-height: 70px;
+  width: 100%; min-height: calc(70px + env(safe-area-inset-top, 0px));
+  flex-shrink: 0; position: relative; z-index: 6;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 13px max(22px, calc((100vw - 1120px) / 2));
+  padding: calc(13px + env(safe-area-inset-top, 0px)) max(22px, calc((100vw - 1120px) / 2)) 13px;
   border-bottom: 1px solid #9FB3C8;
   background: #F4F2EC;
 }
@@ -26,9 +28,10 @@ button:disabled { opacity: .55; cursor: wait; }
   font-size: 20px; font-weight: 900; letter-spacing: -.1em; padding-right: 2px;
 }
 .app-main {
-  flex: 1; width: 100%; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 30px 22px 44px;
+  flex: 1 0 auto; width: 100%; min-height: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding: 30px 22px calc(44px + env(safe-area-inset-bottom, 0px));
 }
 .workout {
   width: min(1120px, 100%);
@@ -139,10 +142,16 @@ button:disabled { opacity: .55; cursor: wait; }
 }
 .quick-guide-steps p span { color: #334155; font-size: 11px; font-weight: 780; }
 @media (max-width: 760px) {
-  .app-header { min-height: 60px; padding: 10px 18px; }
+  .app-header {
+    min-height: calc(60px + env(safe-area-inset-top, 0px));
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 18px 10px;
+  }
   .wordmark { font-size: 17px; }
   .mark { width: 30px; height: 30px; font-size: 18px; }
-  .app-main { align-items: center; justify-content: flex-start; padding: 22px 16px calc(30px + env(safe-area-inset-bottom)); }
+  .app-main {
+    align-items: center; justify-content: flex-start;
+    padding: 22px 16px calc(30px + env(safe-area-inset-bottom, 0px));
+  }
   .workout { max-width: 540px; grid-template-columns: 1fr; gap: 18px; }
   .camera { aspect-ratio: 4 / 3; border-radius: 13px; }
   .counter-panel { gap: 12px; min-height: 0; padding: 16px; border-radius: 13px; }
@@ -174,11 +183,13 @@ button:disabled { opacity: .55; cursor: wait; }
 .log-out-label { color: #64748B; font-size: 11px; }
 .login-backdrop {
   position: fixed; z-index: 20; inset: 0; background: #334155b8;
-  display: grid; place-items: center; padding: 18px;
+  display: flex; align-items: safe center; justify-content: center;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 18px calc(18px + env(safe-area-inset-bottom, 0px));
 }
 .login-modal {
   background: #FFFFFF; color: #334155; border: 1px solid #9FB3C8;
-  border-radius: 16px; padding: 26px; width: min(420px, 100%);
+  border-radius: 16px; padding: 26px; width: min(420px, 100%); margin: auto;
   box-shadow: 0 18px 75px #33415544;
 }
 .login-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
