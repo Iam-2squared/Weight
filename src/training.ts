@@ -1,6 +1,8 @@
 export interface TrainingSession {
   id: string;
   reps: number;
+  /** Undefined for sessions recorded before 10-second streak tracking existed. */
+  bestStreak?: number;
   endedAt: string;
   durationSec: number;
 }
@@ -54,7 +56,16 @@ export function validateSession(value: unknown): TrainingSession | null {
   const date = new Date(row.endedAt);
   if (!Number.isFinite(date.getTime()) || date.toISOString() !== row.endedAt) return null;
   if (!Number.isInteger(row.durationSec) || (row.durationSec as number) < 0 || (row.durationSec as number) > 86_400) return null;
-  return { id: row.id, reps: row.reps as number, endedAt: row.endedAt, durationSec: row.durationSec as number };
+  // Older saved sessions had no consecutive metric. Preserve their total
+  // repetitions without falsely presenting all of them as a continuous run.
+  if (row.bestStreak !== undefined && (
+    !Number.isInteger(row.bestStreak) || (row.bestStreak as number) < 1 ||
+    (row.bestStreak as number) > (row.reps as number)
+  )) return null;
+  return {
+    id: row.id, reps: row.reps as number, endedAt: row.endedAt, durationSec: row.durationSec as number,
+    ...(row.bestStreak === undefined ? {} : {bestStreak: row.bestStreak as number}),
+  };
 }
 
 export function sanitizeSessions(value: unknown): TrainingSession[] {
@@ -126,6 +137,15 @@ export function streakStats(sessions: TrainingSession[], today: string) {
     days: days.size,
     totalReps: sessions.reduce((sum, session) => sum + session.reps, 0),
     best: sessions.length ? Math.max(...sessions.map((session) => session.reps)) : 0,
+  };
+}
+
+/** Sessions count toward total even when the old format has no streak data. */
+export function trainingTotals(sessions: readonly TrainingSession[]) {
+  return {
+    totalReps: sessions.reduce((sum, s) => sum + s.reps, 0),
+    bestStreak: sessions.reduce((best, s) => Math.max(best, s.bestStreak ?? 0), 0),
+    knownStreakSessions: sessions.filter(s=>s.bestStreak !== undefined).length,
   };
 }
 
