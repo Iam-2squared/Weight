@@ -574,6 +574,7 @@ export default function App() {
               <button type="button" className="login-close" onClick={()=>{setLoginOpen(false);setPin("");}} disabled={loginBusy} aria-label="閉じる">×</button>
             </div>
             <p className="login-description">KGS 11thの出席番号とPINを入力</p>
+            <p className="login-ranking-notice">ログインすると名前と腕立ての記録がKGSログインユーザーに自動表示されます。</p>
             <form className="login-form" onSubmit={event=>void signIn(event)}>
               <label htmlFor="kgs-number">出席番号</label>
               <input id="kgs-number" type="text" inputMode="numeric" autoComplete="off" maxLength={2}
