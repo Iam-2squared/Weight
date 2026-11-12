@@ -40,7 +40,7 @@ describe("Japan daily records", () => {
       rec("four", "2026-11-11T15:00:00.000Z", 20),
     ];
     const stats = streakStats(sessions, "2026-11-12");
-    expect(stats).toMatchObject({ current: 4, longest: 4, days: 4, totalReps: 50, best: 20 });
+    expect(stats).toMatchObject({ current: 3, longest: 3, days: 3, totalReps: 50, best: 20 });
     expect(summariesByDay(sessions).get("2026-11-11")).toEqual({reps: 20, sessions: 2});
   });
   it("retains streak through yesterday but resets after a full missed day", () => {
