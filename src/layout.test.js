@@ -86,3 +86,17 @@ describe("immersive two-axis shared rankings", () => {
     expect(styles).toContain("background-repeat: repeat-y");
   });
 });
+
+describe("user-selected seamless ranking panorama", () => {
+  it("uses the uploaded image once across the entire world rather than separate image bands", () => {
+    const world = readFileSync(new URL("./LeaderboardLandscape.tsx", import.meta.url), "utf8");
+    expect(world).toContain('className="ranking-world-panorama"');
+    expect(world).not.toContain('className="ranking-world-backdrop"');
+    expect(world).not.toContain('className={"world-band');
+    expect(world).not.toContain("RANKING_SCENE_ASSETS");
+    expect(styles).toContain('url("/ranking-scenes/user-panorama.webp")');
+    expect(block(".ranking-world-panorama")).toContain("background-size: 100% 100%");
+    expect(block(".ranking-world-panorama")).toContain("background-repeat: no-repeat");
+    expect(block(".ranking-world-viewport")).toContain("overflow: auto");
+  });
+});

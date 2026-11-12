@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { heightInMeters, heightLabel, RANKING_SCENE_ASSETS, type Scene } from "./TowerJourney";
+import { heightInMeters, heightLabel, type Scene } from "./TowerJourney";
 
 export type RankMetric = "bestStreak" | "totalReps";
 export interface SharedRank {
@@ -102,17 +102,13 @@ export function LeaderboardLandscape({entries,metric,self,optedIn}:Props) {
   return <div className="ranking-world-viewport" ref={viewport} tabIndex={0}
     role="region" aria-label="腕立て伏せランキングの世界。上下左右にスクロールできます">
     <div className="ranking-world" style={{width:worldWidth,height:WORLD_HEIGHT}}>
-      <div className="ranking-world-backdrop" aria-hidden="true">
-        {stageWorld.map(stage=><div key={stage.scene} className={"world-band world-band-"+stage.scene}
-          style={{height:stage.pixels,bottom:stage.bottom}}>
-          <div className="world-band-art"
-            style={{backgroundImage:"url("+RANKING_SCENE_ASSETS[stage.scene]+")"}}/>
-          <span className="world-landmark">{stage.label}</span>
-        </div>)}
-      </div>
+      {/* One continuous user-supplied vertical panorama, not eight stage images. */}
+      <div className="ranking-world-panorama" aria-hidden="true"/>
       <div className="world-height-lines" aria-hidden="true">
         {stageWorld.slice(1).map(stage=><div key={stage.scene}
-          className="world-height-guide" style={{bottom:stage.bottom}}/>)}
+          className="world-height-guide" style={{bottom:stage.bottom}}>
+          <span className="world-level-label">{stage.label}</span>
+        </div>)}
       </div>
       <div className="world-ground" aria-hidden="true" style={{bottom:GROUND_MARGIN-3}}/>
       {lanes.map((entry,index)=>{

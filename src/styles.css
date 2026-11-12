@@ -438,59 +438,37 @@ button:disabled { opacity: .55; cursor: wait; }
 .ranking-world {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(0deg,#CED6D8 0%,#9DAFBE 45%,#17253D 100%);
+  background: #233954;
 }
-.ranking-world-backdrop,.world-height-lines {
+.ranking-world-panorama {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  background-image: url("/ranking-scenes/user-panorama.webp");
+  /* Full image: no cut-up layers, no repeat, and no stage boundaries. */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
 }
-.world-band {
-  position: absolute;
-  left: 0;
-  right: 0;
-  overflow: hidden;
-  background: #CDDCE3;
-}
-.world-band-roof,.world-band-city,.world-band-skytree { background-color: #C5D9E4; }
-.world-band-fuji,.world-band-clouds { background-color: #C1D8E6; }
-.world-band-space,.world-band-moon { background-color: #192D47; }
-.world-band-art {
+.world-height-lines {
   position: absolute;
   inset: 0;
-  background-size: auto 100%;
-  background-position: left center;
-  background-repeat: repeat-x;
-  opacity: .98;
-}
-.world-band::after {
-  position: absolute;
-  content: "";
-  inset: 0;
-  background: linear-gradient(to bottom, #4057760B 0%,transparent 12%,transparent 87%,#40577615 100%);
   pointer-events: none;
-}
-.world-band-space::after,.world-band-moon::after {
-  background: linear-gradient(to bottom,#0D1A2C18,transparent 13%,transparent 88%,#0D1A2C38);
-}
-.world-landmark {
-  position: sticky;
-  top: 14px;
-  left: 14px;
-  display: inline-block;
   z-index: 2;
-  max-width: 270px;
-  margin: 14px 0 0 14px;
-  padding: 9px 13px;
-  border-radius: 99px;
-  background: #F4F2ECD9;
-  color: #334155;
-  border: 1px solid #BBC9D6B5;
-  font-size: 12px;
-  font-weight: 780;
-  box-shadow: 0 4px 18px #24354C16;
 }
-.world-height-lines { z-index: 2; }
+.world-level-label {
+  position: absolute;
+  left: 17px;
+  bottom: 7px;
+  background: #F4F2ECDD;
+  border: 1px solid #B3C6D3C4;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 760;
+  padding: 6px 10px;
+  box-shadow: 0 3px 12px #152C4530;
+}
 .world-height-guide {
   position: absolute;
   left: 0;
