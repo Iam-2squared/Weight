@@ -93,8 +93,8 @@ export function LeaderboardLandscape({entries,metric,self,optedIn}:{entries:Shar
   const maxValue=Math.max(1,...lanes.map(entry=>entry[metric]));
   const move=(direction:number)=>scroll.current?.scrollBy({left:direction*240,behavior:"smooth"});
   if(lanes.length===0)return <section className="landscape-empty">
-    <strong>最初の挑戦者になろう</strong>
-    <span>記録ができたら、共有ランキングに参加できます。</span>
+    <strong>まだランキングの記録がありません</strong>
+    <span>KGSでログインすると自動的に名前と回数が表示されます。</span>
   </section>;
   return <section className="landscape-section" aria-label="参加者の高さを横スクロールで比較">
     <div className="landscape-top">
@@ -113,7 +113,7 @@ export function LeaderboardLandscape({entries,metric,self,optedIn}:{entries:Shar
             <div className="ranker-identity">
               <span className="ranker-position">{entry.rank===null?"参考":"#"+entry.rank}</span>
               <div><strong>{entry.isSelf?"あなた":entry.name}</strong>
-                <span>{entry.unpublished?"未公開の個人記録":entry.name+(entry.isSelf?"（自分）":"")}</span></div>
+                <span>{entry.unpublished?"同期中の個人記録":entry.name+(entry.isSelf?"（自分）":"")}</span></div>
             </div>
             <RankerGraphic entry={entry} value={count} maxValue={maxValue} index={index}/>
             <div className="ranker-stats">
