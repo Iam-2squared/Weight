@@ -200,6 +200,10 @@ export default function App() {
   const start = async (nextFacing: Facing) => {
     const session = ++generation.current;
     stopResources();
+    if (pausedAt.current !== null) {
+      totalPaused.current += Date.now() - pausedAt.current;
+      pausedAt.current = null;
+    }
     paused.current = false;
     setFacing(nextFacing);
     setError("");
