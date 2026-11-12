@@ -398,3 +398,74 @@ button:disabled { opacity: .55; cursor: wait; }
   .orientation-sign { width: 52px; height: 52px; flex-basis: 52px; }
   .orientation-warning strong { font-size: 22px; }
 }
+
+
+/* Push-up height journey: flat-color vector scenes, no external assets. */
+.ranking-mode {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  background: #DEE5EB; padding: 5px;
+  border: 1px solid #B4C3CF; border-radius: 13px;
+  margin: 0 0 15px;
+}
+.ranking-mode button {
+  border: 0; min-height: 46px; border-radius: 9px; color: #65768B;
+  background: transparent; font-size: 14px; font-weight: 750;
+}
+.ranking-mode button.active {
+  background: #334155; color: #FFFFFF;
+  box-shadow: 0 2px 5px #33415522;
+}
+.ranking-mode button:focus-visible {outline: 3px solid #9FB3C8;}
+.journey-shell {
+  border: 1px solid #9FB3C8; border-radius: 18px; overflow: hidden;
+  background: #FFFFFF;
+}
+.journey-topline {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 17px 19px 14px;
+  background: #FFFFFF;
+}
+.journey-eyebrow { display: block; font-size: 9px; font-weight: 850; color: #8AA0B3; letter-spacing: .13em; }
+.journey-topline h2 { font-size: 17px; font-weight: 790; margin: 5px 0 0; color: #334155; }
+.journey-height { color: #334155; font-weight: 850; font-variant-numeric: tabular-nums; font-size: 21px; letter-spacing: -.04em; white-space: nowrap; }
+.journey-art { display: block; width: 100%; height: auto; max-height: 460px; background: #DCE4E8; }
+.journey-art .stacked-people { filter: drop-shadow(1px 2px 0 #263C5522); }
+.journey-art .stacked-people use { opacity: .97; }
+.journey-bottom { padding: 19px 20px 16px; }
+.journey-floor { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px solid #E0E8EE; padding-bottom: 12px; }
+.journey-floor span { font-size: 12px; color: #7890A1; font-weight: 630; }
+.journey-floor strong { font-size: 25px; color: #334155; font-weight: 850; font-variant-numeric: tabular-nums; }
+.journey-next { display: flex; justify-content: space-between; flex-wrap: wrap; column-gap: 15px; row-gap: 6px; padding: 15px 0 11px; font-size: 12px; color: #64748B; font-weight: 650; }
+.journey-next span:last-child { font-weight: 790; color: #334155; }
+.journey-progress { width: 100%; height: 8px; border-radius: 99px; background: #E4EBF0; overflow: hidden; }
+.journey-progress>span { display: block; height: 100%; background: #7896B0; border-radius: inherit; transition: width .35s ease; }
+.journey-note { margin: 0; background: #F5F7F9; border-top: 1px solid #E1E8EE; padding: 11px 19px 13px; font-size: 10px; line-height: 1.65; color: #6D8095; }
+.ranking-milestones { margin-top: 18px; padding: 19px; background: #FFFFFF; border: 1px solid #BAC8D4; border-radius: 15px; }
+.ranking-milestones-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; }
+.ranking-milestones-head h2 { margin: 0; font-size: 15px; }
+.ranking-milestones-head>span { font-size: 10px; color: #7F90A0; }
+.milestone-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.milestone-chip {
+  border: 1px solid #E1E8ED; background: #F6F8F9; border-radius: 10px;
+  display: grid; align-items: center; grid-template-columns: 21px 1fr;
+  column-gap: 7px; row-gap: 3px; padding: 10px 12px; min-width: 0;
+}
+.milestone-chip.reached { border-color: #9DB7C9; background: #E8EFF5; }
+.milestone-symbol { color: #9BAFBB; grid-row: span 2; font-weight: 850; }
+.milestone-chip.reached .milestone-symbol { color: #476E90; }
+.milestone-name { min-width: 0; font-size: 11px; font-weight: 730; color: #334155; line-height: 1.4; }
+.milestone-chip small { color: #8596A7; font-size: 10px; }
+@media (max-width: 760px) {
+  .journey-art { max-height: none; }
+  .journey-topline { padding: 15px; }
+  .journey-topline h2 { font-size: 15px; }
+  .journey-height { font-size: 19px; }
+  .journey-bottom { padding: 16px; }
+  .journey-floor strong { font-size: 23px; }
+  .journey-note { padding: 10px 16px 12px; }
+  .ranking-milestones { padding: 15px 13px; }
+  .milestone-chip { padding: 9px; column-gap: 5px; }
+}
+@media (prefers-reduced-motion:reduce) {
+ .journey-progress>span { transition: none; }
+}
