@@ -20,8 +20,7 @@ function config() {
   } catch {
     throw new Error("KGS origin not configured");
   }
-  const bypass = process.env.KGS_WEIGHT_VERCEL_BYPASS_SECRET;
-  return {secret, origin, bypass: typeof bypass === "string" && bypass.length === 32 ? bypass : null};
+  return {secret, origin};
 }
 function toOrigin(req) {
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -96,7 +95,6 @@ async function callKgs(path, payload, settings) {
     "Content-Type": "application/json",
     "Accept": "application/json"
   };
-  if (settings.bypass) headers["x-vercel-protection-bypass"] = settings.bypass;
   const response = await fetch(settings.origin + "/api/integrations/weight/" + path, {
     method: "POST",
     redirect: "manual",
