@@ -188,86 +188,132 @@ export default function App() {
     counter.current.reset(); setReading(counter.current.snapshot()); lastSpoken.current = 0;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   };
+
   const active = status === "running" || status === "paused";
-  const message = status === "running" ? reading.message
-    : status === "paused" ? "一時停止中。再開するまでカウントしません。"
-    : status === "loading" ? "モデルを読み込んでいます。初回は通信が必要です。"
-    : status === "error" ? error : "横向きの全身が映る位置にスマホを固定してください。";
+  const busy = status === "loading";
+  const cameraMessage = status === "error" ? error
+    : status === "loading" ? "準備中…"
+    : status === "paused" ? "一時停止中"
+    : status === "running" && (!reading.tracked || !reading.validForm) ? reading.message
+    : null;
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand"><span className="mark">W</span> WEIGHT <small>BETA / 01</small></div>
-        <div className="top-status"><span className="green-dot" /> ON-DEVICE AI <em>¥0 / MONTH</em></div>
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="wordmark"><span className="mark">W</span><span>Weight</span></div>
       </header>
-      <main className="content">
-        <div className="intro">
-          <p className="eyebrow">WORKOUT 001 <span>——</span> BODYWEIGHT</p>
-          <h1>腕立て伏せ <b>COUNTER</b></h1>
-          <p className="subtitle">カメラを置くだけ。AIがフォームを認識して回数を自動カウント。</p>
-        </div>
-        <section className="dashboard" aria-label="腕立てカウンター">
-          <div className="left">
-            <div className="camera">
-              <div className="camera-head">
-                <span><i className={status === "running" ? "green-dot" : "grey-dot"} /> {status === "running" ? "LIVE / TRACKING" : status === "paused" ? "PAUSED" : status === "loading" ? "STARTING" : "CAMERA OFF"}</span>
-                <span>SIDE VIEW / FULL BODY</span>
-              </div>
-              <video ref={videoRef} muted playsInline autoPlay className={facing === "user" ? "mirrored" : ""} aria-label="ライブカメラ" />
-              <canvas ref={canvasRef} className={facing === "user" ? "mirrored" : ""} aria-hidden="true" />
-              {!active && <div className="placeholder">
-                <div className="reticle">
-                  <svg viewBox="0 0 280 128" aria-hidden="true">
-                    <path d="M10 113H270" stroke="#54716e" strokeDasharray="5 5" />
-                    <circle cx="59" cy="53" r="14" stroke="#b7f6bf" strokeWidth="3" fill="none"/>
-                    <path d="M76 57L158 62 248 103M107 62L117 87 123 111M158 62L168 112" fill="none" stroke="#b7f6bf" strokeWidth="4" strokeLinecap="round"/>
-                    <circle cx="117" cy="87" r="5" fill="#b7f6bf" />
+      <main className="app-main">
+        <section className="workout" aria-label="腕立てカウンター">
+          <div className="camera">
+            <video
+              ref={videoRef}
+              muted
+              playsInline
+              autoPlay
+              className={facing === "user" ? "mirrored" : ""}
+              aria-label="カメラ映像"
+            />
+            <canvas
+              ref={canvasRef}
+              className={facing === "user" ? "mirrored" : ""}
+              aria-hidden="true"
+            />
+
+            <div className="camera-top">
+              <span className="camera-indicator">
+                <span className={status === "running" ? "live-dot" : "idle-dot"} />
+                {status === "running" ? "LIVE" : status === "paused" ? "PAUSE" : "CAMERA"}
+              </span>
+              {active && (
+                <button
+                  type="button"
+                  className="camera-flip"
+                  onClick={() => void start(facing === "environment" ? "user" : "environment")}
+                  title="カメラ切替"
+                  aria-label="カメラ切替"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m8 5 1.6-2h4.8L16 5h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3Z"/>
+                    <path d="m15.5 10-2.2-2.1V10H9a3 3 0 0 0-2.6 1.5"/>
+                    <path d="m8.5 14 2.2 2.1V14H15a3 3 0 0 0 2.6-1.5"/>
                   </svg>
-                </div>
-                <strong>{status === "loading" ? "INITIALIZING..." : "READY TO TRAIN"}</strong>
-                <span>{status === "loading" ? "少しずつセットアップしています" : "横から全身を映してください"}</span>
-              </div>}
-              <div className="camera-foot"><span>POSE TRACKING <b>{status === "running" && reading.tracked ? "ACTIVE" : "—"}</b></span><span>V1.0 / BETA</span></div>
+                </button>
+              )}
             </div>
-            <div className={"notice" + (status === "error" || (status === "running" && reading.tracked && !reading.validForm) ? " warning" : "")} role="status" aria-live="polite">
-              <span className="notice-icon">{status === "running" && reading.validForm ? "✓" : "i"}</span>{message}
-            </div>
-            <div className="actions">
-              {!active
-                ? <button className="primary" onClick={() => void start(facing)} disabled={status === "loading"}>{status === "loading" ? "起動中..." : "◉ カメラを起動する"}</button>
-                : <button className="primary" onClick={togglePause}>{status === "paused" ? "▶ カウント再開" : "Ⅱ 一時停止"}</button>}
-              {active && <button className="secondary" onClick={() => void start(facing === "environment" ? "user" : "environment")}>カメラ切替</button>}
-              {active && <button className="secondary" onClick={stop}>停止</button>}
-            </div>
-          </div>
-          <aside className="right">
-            <div className="counter-card">
-              <div className="card-top"><span>REP COUNTER</span><b>● AUTO</b></div>
-              <div className="reps" aria-live="polite" aria-atomic="true">{String(reading.count).padStart(2, "0")}</div>
-              <div className="reps-label">REPETITIONS — 回</div>
-              <div className="measurements">
-                <div><span>ELBOW ANGLE</span><strong>{reading.elbowAngle === null ? "—" : reading.elbowAngle + "°"}</strong></div>
-                <div><span>BODY ALIGNMENT</span><strong className={status === "running" && reading.validForm ? "good" : ""}>{status === "running" && reading.tracked ? reading.validForm ? "GOOD" : "CHECK" : "—"}</strong></div>
+
+            {!active && (
+              <div className="camera-empty">
+                <svg className="camera-symbol" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 18h8l5-6h20l5 6h8v32H9z"/>
+                  <circle cx="32" cy="33" r="11"/>
+                </svg>
+                <span>{status === "loading" ? "準備中…" : "カメラ待機"}</span>
               </div>
-              <div className="phase"><span>MOVEMENT PHASE</span><b>{status === "paused" ? "PAUSED" : reading.stage.toUpperCase()}</b></div>
+            )}
+            {cameraMessage && (
+              <div className={"camera-message" + (status === "error" ? " is-error" : "")} role="status" aria-live="polite">
+                {cameraMessage}
+              </div>
+            )}
+          </div>
+
+          <div className="counter-panel">
+            <div className="count-display">
+              <span className="count-label">回数</span>
+              <div className="count" aria-live="polite" aria-atomic="true">{reading.count}</div>
             </div>
-            <div className="utilities">
-              <button onClick={reset} aria-label="カウントをゼロにリセット"><span>↺</span> リセット</button>
-              <button onClick={() => setSound(v => !v)} aria-pressed={sound}><span>{sound ? "♫" : "×"}</span> 音声 {sound ? "ON" : "OFF"}</button>
+
+            <div className="controls">
+              {!active ? (
+                <button
+                  type="button"
+                  className="main-action"
+                  disabled={busy}
+                  onClick={() => void start(facing)}
+                >
+                  {busy ? "準備中…" : "開始"}
+                </button>
+              ) : (
+                <button type="button" className="main-action" onClick={togglePause}>
+                  {status === "paused" ? "再開" : "一時停止"}
+                </button>
+              )}
+              <button type="button" className="icon-action" onClick={reset} aria-label="リセット" title="リセット">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 10a9 9 0 1 1 2.7 7M3 4v6h6"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="icon-action"
+                onClick={() => setSound(v => !v)}
+                aria-label={sound ? "音声をオフ" : "音声をオン"}
+                aria-pressed={sound}
+                title={sound ? "音声オン" : "音声オフ"}
+              >
+                {sound ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
+                    <path d="M15 9a5 5 0 0 1 0 6M18 6a9 9 0 0 1 0 12"/>
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
+                    <path d="m16 9 5 6m0-6-5 6"/>
+                  </svg>
+                )}
+              </button>
+              {active && (
+                <button type="button" className="icon-action" onClick={stop} aria-label="カメラ停止" title="カメラ停止">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="6.5" y="6.5" width="11" height="11" rx="1"/>
+                  </svg>
+                </button>
+              )}
             </div>
-          </aside>
-        </section>
-        <section className="instructions">
-          <div><p className="eyebrow">GET STARTED</p><h2>正しくカウントするために</h2></div>
-          <div className="steps">
-            <div><span>01</span><section><strong>スマホは横向きに</strong><p>床に近い位置に固定し、体の側面を映す。</p></section></div>
-            <div><span>02</span><section><strong>全身を画面に収める</strong><p>肩・肘・手首・腰・足首が見える距離に。</p></section></div>
-            <div><span>03</span><section><strong>上 → 下 → 上で1回</strong><p>肘を曲げてから伸ばすと自動カウント。</p></section></div>
           </div>
         </section>
-        <p className="privacy">PRIVACY FIRST — カメラ映像は端末内で処理し、Weightのサーバーには送信しません。モデルとWASMの読み込みには初回通信が必要です。MediaPipeは利用状況に関するメトリクスを送る場合があります。胸と床の距離は直接測れず、回数・姿勢は参考値です。</p>
       </main>
-      <footer className="footer"><span>WEIGHT / VERSION 0.1.0</span><span>BUILT FOR PROGRESS. NOT FOR PROFIT.</span></footer>
     </div>
   );
 }
