@@ -24,7 +24,7 @@ export function buildLanes(entries:readonly SharedRank[],metric:RankMetric,
   self:{memberId:string;name:string;totalReps:number;bestStreak:number}|null,
   optedIn:boolean):RankLane[]{
   const ordered=sortLeaderboard(entries,metric);
-  const lanes=ordered.map((entry,i)=>({...entry,rank:i+1,isSelf:!!self&&entry.memberId===self.memberId,unpublished:false}));
+  const lanes:RankLane[]=ordered.map((entry,i)=>({...entry,rank:i+1,isSelf:!!self&&entry.memberId===self.memberId,unpublished:false}));
   if(self&&(!optedIn||!lanes.some(x=>x.memberId===self.memberId))&&
     !lanes.some(x=>x.memberId===self.memberId)){
     lanes.push({...self,rank:null,isSelf:true,unpublished:true});
