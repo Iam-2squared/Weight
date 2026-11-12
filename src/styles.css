@@ -554,3 +554,356 @@ button:disabled { opacity: .55; cursor: wait; }
 
 /* Clear disclosure when account login automatically publishes leaderboard records. */
 .login-ranking-notice {font-size:11px;line-height:1.65;color:#667A8F;margin:-12px 0 18px;padding:10px 12px;border:1px solid #DFE6EC;border-radius:9px;background:#F4F6F8;}
+
+
+/* Immersive 2D ranking world. One scroll surface for scenery and users. */
+.app-shell.is-ranking {
+  height: 100svh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell.is-ranking .app-header { z-index: 24; }
+.ranking-app-main {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  padding: 0 0 calc(68px + env(safe-area-inset-bottom,0px));
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+}
+.ranking-tab-content {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  min-height: 0;
+}
+.ranking-immersive {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #9DAFBE;
+}
+.ranking-world-viewport {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #6F889C #E3EBEE;
+  background: #CBD7DE;
+}
+.ranking-world-viewport:focus-visible { outline: 3px solid #9FB3C8; outline-offset: -3px; }
+.ranking-world {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(0deg,#CED6D8 0%,#9DAFBE 45%,#17253D 100%);
+}
+.ranking-world-backdrop,.world-height-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.world-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  background: #CDDCE3;
+}
+.world-band-roof,.world-band-city,.world-band-skytree { background-color: #C5D9E4; }
+.world-band-fuji,.world-band-clouds { background-color: #C1D8E6; }
+.world-band-space,.world-band-moon { background-color: #192D47; }
+.world-band-art {
+  position: absolute;
+  inset: 0;
+  background-size: auto 100%;
+  background-position: left center;
+  background-repeat: repeat-x;
+  opacity: .98;
+}
+.world-band::after {
+  position: absolute;
+  content: "";
+  inset: 0;
+  background: linear-gradient(to bottom, #4057760B 0%,transparent 12%,transparent 87%,#40577615 100%);
+  pointer-events: none;
+}
+.world-band-space::after,.world-band-moon::after {
+  background: linear-gradient(to bottom,#0D1A2C18,transparent 13%,transparent 88%,#0D1A2C38);
+}
+.world-landmark {
+  position: sticky;
+  top: 14px;
+  left: 14px;
+  display: inline-block;
+  z-index: 2;
+  max-width: 270px;
+  margin: 14px 0 0 14px;
+  padding: 9px 13px;
+  border-radius: 99px;
+  background: #F4F2ECD9;
+  color: #334155;
+  border: 1px solid #BBC9D6B5;
+  font-size: 12px;
+  font-weight: 780;
+  box-shadow: 0 4px 18px #24354C16;
+}
+.world-height-lines { z-index: 2; }
+.world-height-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 1px dashed #E4EDF1D4;
+  box-shadow: 0 1px 0 #425F7A35;
+}
+.world-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: #344B60D9;
+  z-index: 3;
+  box-shadow: 0 2px 8px #15273840;
+}
+.world-person {
+  position: absolute;
+  z-index: 4;
+  width: 112px;
+  height: 0;
+  pointer-events: none;
+}
+.world-person-info {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: 126px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 8px 9px;
+  color: #FFFFFF;
+  background: #24374DEB;
+  border: 1px solid #D9E7EF85;
+  border-radius: 11px;
+  box-shadow: 0 5px 13px #0B1D3085;
+  text-shadow: 0 1px 2px #13243B55;
+}
+.world-person-self .world-person-info {
+  background: #142E4B;
+  border-color: #F2E4BE;
+  box-shadow: 0 0 0 2px #F0D28F8C,0 6px 18px #091B3188;
+}
+.world-person-rank {
+  font-size: 10px;
+  font-weight: 790;
+  color: #D0E0E9;
+}
+.world-person-rank.first { color: #F5DF9A; }
+.world-person-info strong {
+  max-width: 108px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+}
+.world-person-count {
+  font-size: 15px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+.world-person-height { font-size: 10px; color: #C4D7E7; }
+.world-person-stack {
+  position: absolute;
+  left: 24px;
+  width: 72px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #D6E7E72E, #253A517A 48%,#D5E2E440);
+  border-left: 1px solid #F2F6FB66;
+  border-right: 1px solid #24394B70;
+}
+.world-stack-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: url("/ranking-scenes/pushup-person.svg");
+  background-repeat: repeat-y;
+  background-size: 70px 30px;
+  background-position: center bottom;
+  opacity: .96;
+}
+.world-person-pending {
+  position: absolute;
+  bottom: -31px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: #F8F1DAF2;
+  border: 1px solid #D8C79A;
+  color: #39465B;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.world-origin {
+  position: absolute;
+  left: 17px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 850;
+  color: #243B53;
+  background: #EBF0F0D0;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.world-origin span:last-child { font-size: 9px; letter-spacing: .1em; }
+.world-empty {
+  position: absolute;
+  left: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 17px;
+  border-radius: 13px;
+  background: #24374DD9;
+  color: #FFFFFF;
+}
+.world-empty span { font-size: 12px; color: #D0DFE8; }
+.ranking-floating-ui {
+  position: absolute;
+  z-index: 12;
+  inset: 0 0 auto;
+  padding: 14px max(16px, env(safe-area-inset-left,0px)) 32px;
+  pointer-events: none;
+  color: #FFFFFF;
+  background: linear-gradient(180deg,#14283CEB,#21374BC9 63%,transparent 100%);
+}
+.ranking-floating-ui button { pointer-events: auto; }
+.ranking-ui-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto 10px;
+}
+.ranking-ui-title span {
+  display: block;
+  color: #AEBFCE;
+  font-size: 9px;
+  font-weight: 830;
+  letter-spacing: .15em;
+}
+.ranking-ui-title h1 {
+  margin: 3px 0;
+  font-size: 22px;
+  letter-spacing: -.04em;
+  line-height: 1.25;
+}
+.ranking-ui-actions { flex-shrink: 0; }
+.ranking-reload,.ranking-login {
+  min-width: 42px;
+  height: 39px;
+  padding: 0 13px;
+  border: 1px solid #D4E1EC78;
+  border-radius: 10px;
+  background: #EAF1F2;
+  color: #334155;
+  font-weight: 790;
+}
+.ranking-reload { font-size: 25px; }
+.ranking-reload:disabled { opacity: .7; }
+.ranking-world-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4px;
+  background: #EBF0F126;
+  border: 1px solid #FFFFFF55;
+  border-radius: 11px;
+  backdrop-filter: blur(4px);
+}
+.ranking-world-modes button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ECF2F6;
+  font-size: 13px;
+  font-weight: 740;
+}
+.ranking-world-modes button.selected {
+  color: #273A52;
+  background: #F5F4EE;
+}
+.ranking-world-error {
+  max-width: 720px;
+  margin: 8px auto 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: #F7E8E4;
+  font-size: 11px;
+  background: #874640BB;
+  line-height: 1.5;
+}
+.ranking-world-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 720px;
+  margin: 7px auto 0;
+  color: #E2EDF3D9;
+  font-size: 10px;
+}
+.ranking-world-meta button {
+  border: 1px solid #D9E6EE8C;
+  background: #FFFFFF33;
+  color: #FFFFFF;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.ranking-gesture-hint {
+  position: absolute;
+  z-index: 9;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 13px;
+  border-radius: 99px;
+  background: #243950D8;
+  color: #EEF5F7;
+  font-weight: 670;
+  font-size: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .ranking-floating-ui { padding: 12px 14px 26px; }
+  .ranking-ui-title h1 { font-size: 20px; }
+  .ranking-world-modes button { min-height: 39px; }
+  .ranking-gesture-hint { bottom: 10px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .ranking-world-viewport { scroll-behavior: auto; }
+}
