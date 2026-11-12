@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
 import { PushupCounter, type CounterSnapshot, type Landmark } from "./counter";
+import { RepStreakTracker } from "./rep-streak";
 import { Icon } from "./icons";
 import { DailyPage, ChallengePage, RankingPage, SettingsPage } from "./pages";
 import { loadSessions, saveSession, clearSessions, formatDuration, type TrainingSession } from "./training";
@@ -74,6 +75,7 @@ export default function App() {
   const finished = useRef(false);
   const measureAccount = useRef<string | null>(null);
   const counter = useRef(new PushupCounter());
+  const streakTracker = useRef(new RepStreakTracker());
   const [reading, setReading] = useState<CounterSnapshot>(() => counter.current.snapshot());
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,6 +127,8 @@ export default function App() {
   useEffect(() => {
     if (!measuring) return;
     const tick = () => {
+      // End the active streak at >10 seconds, even if the camera is paused.
+      streakTracker.current.advanceTime(performance.now());
       if (startedAt.current === null) return;
       const end = pausedAt.current ?? Date.now();
       setElapsed(Math.max(0, Math.floor((end - startedAt.current - totalPaused.current) / 1000)));
@@ -257,11 +261,16 @@ export default function App() {
               const landmarks = result.landmarks[0];
               if (canvasRef.current) draw(canvasRef.current, landmarks, video.videoWidth, video.videoHeight);
               const next = counter.current.update(landmarks, now, video.videoWidth, video.videoHeight);
-              setReading(next);
+              streakTracker.current.advanceTime(now);
               if (next.count > lastSpoken.current) {
+                // One event for each actual completed push-up, not every video frame.
+                for (let rep = lastSpoken.current; rep < next.count; rep++) {
+                  streakTracker.current.recordRep(now);
+                }
                 lastSpoken.current = next.count;
                 if (soundLatest.current) speak(next.count);
               }
+              setReading(next);
             } catch {
               generation.current++;
               stopResources();
@@ -308,13 +317,16 @@ export default function App() {
     }
   };
   const reset = () => {
-    counter.current.reset(); setReading(counter.current.snapshot()); lastSpoken.current = 0;
+    counter.current.reset();
+    streakTracker.current.reset();
+    setReading(counter.current.snapshot()); lastSpoken.current = 0;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   };
 
   const enterMeasurement = () => {
     stop();
     counter.current.reset();
+    streakTracker.current.reset();
     setReading(counter.current.snapshot());
     startedAt.current = null;
     pausedAt.current = null;
@@ -330,6 +342,7 @@ export default function App() {
     if (finished.current) return;
     finished.current = true;
     const completedReps = counter.current.snapshot().count;
+    const bestStreak = streakTracker.current.snapshot().bestStreak;
     const ended = Date.now();
     const countedSec = startedAt.current===null ? 0
       : Math.max(0,Math.floor(((pausedAt.current ?? ended)-startedAt.current-totalPaused.current)/1000));
@@ -337,6 +350,7 @@ export default function App() {
       const record: TrainingSession = {
         id: crypto.randomUUID(),
         reps: completedReps,
+        bestStreak,
         durationSec: countedSec,
         endedAt: new Date(ended).toISOString(),
       };
