@@ -431,7 +431,10 @@ export default function App() {
       };
       try {
         const saved = saveSession(measureAccount.current,record);
-        if (measureAccount.current === (member?.id ?? null)) setSessions(saved);
+        if (measureAccount.current === (member?.id ?? null)) {
+          setSessions(saved);
+          if(rankOptedIn && member)void publishRanking(true,saved);
+        }
       } catch {
         setSaveError("保存できませんでした。端末の保存容量を確認してください。");
       }
@@ -532,7 +535,11 @@ export default function App() {
           <div className="tab-content" key={tab}>
             {tab==="daily" && <DailyPage sessions={sessions} onChallenge={()=>setTab("challenge")}/>}
             {tab==="challenge" && <ChallengePage sessions={sessions} onStart={enterMeasurement}/>}
-            {tab==="ranking" && <RankingPage sessions={sessions} onChallenge={()=>setTab("challenge")}/>}
+            {tab==="ranking" && <RankingPage sessions={sessions} member={member}
+              entries={sharedEntries} optedIn={rankOptedIn} loading={rankBusy} error={rankError}
+              onPublish={()=>void publishRanking(true)} onLeave={()=>void publishRanking(false)}
+              onRefresh={()=>void refreshRanking()} onLogin={()=>{setLoginError("");setLoginOpen(true);}}
+              onChallenge={()=>setTab("challenge")}/>}
             {tab==="settings" && <SettingsPage member={member} sound={sound} onSoundChange={setSoundPreference}
               onLogin={()=>{setLoginError("");setLoginOpen(true);}} onLogout={()=>void signOut()}
               onClear={clearHistory} sessionCount={sessions.length}/>}
