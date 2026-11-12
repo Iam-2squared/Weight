@@ -23,15 +23,13 @@ Node.js 22.12 以降を使用してください。
 
 カメラは HTTPS または localhost でのみ使用可能です。初回のAIモデルとWASMの取得にはインターネット接続が必要です。
 
-## 無料公開
+## Vercel無料プレビュー
 
-GitHub Pages の公開リポジトリ向け無料枠を利用します。
-
-1. Settings → Pages → Build and deployment → Source で GitHub Actions を選ぶ
-2. V1のPRをレビューして main にマージする
-3. mainへのpushで自動デプロイし、Actions の成功を確認する
-
-公開先の想定: https://iam-2squared.github.io/Weight/ （実際に公開完了するまでは利用できません）
+- GitHubでソース管理し、Vercel Hobby（非商用の個人利用）で公開する。VercelへのデプロイはGit連携を使用する。
+- プロジェクトのフレームワークは Vite、ビルドコマンドは `npm run build`、出力は `dist`。
+- 開発ブランチ `feature/v1-pushup-counter` のプレビューでiPhone Safari／Android Chromeから検証してからmainへマージする。
+- GitHub Pagesは使用しない。Vercelの無料枠・利用規約を確認し、有料プラン・課金機能への移行は明示承認なしに行わない。
+- プレビューURLにVercel Authentication等の保護が掛かる場合は、Vercelにログインするか、期限付きの共有リンクで開く。
 
 ## 撮影と判定
 
@@ -43,7 +41,7 @@ GitHub Pages の公開リポジトリ向け無料枠を利用します。
 
 映像の推論はブラウザ端末内で行い、Weight独自のサーバーにはカメラ映像を送信しません。WASMはjsDelivr、学習済みモデルはGoogle Storageから取得します。MediaPipeは性能や利用状況のメトリクスをGoogleに送る場合があります。詳細は MediaPipe のプライバシー通知（https://www.npmjs.com/package/@mediapipe/tasks-vision）を参照してください。
 
-GitHub Pages、React、Vite、MediaPipeは無料利用でき、有料API・有料サーバーを導入しません。将来の利用規約や無料枠の変更には留意します。明示承認なしに有料サービスを追加しません。
+Vercel Hobby（利用条件内）、React、Vite、MediaPipeを利用し、有料API・有料サーバーを導入しません。将来の利用規約や無料枠の変更には留意します。明示承認なしに有料サービスを追加しません。
 
 ## リリース判定
 
