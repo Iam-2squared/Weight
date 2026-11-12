@@ -126,6 +126,10 @@ export class PushupCounter {
     if (!points || frameWidth <= 0 || frameHeight <= 0) {
       return this.markMissing(timestamp, "全身が映る位置にカメラを調整してください");
     }
+    // Reacquire a stable top pose after a long video/background gap.
+    if (this.lastTrackedAt !== -Infinity && timestamp - this.lastTrackedAt > LOST_RESET_MS) {
+      this.resetTracking();
+    }
     const selection = selectSide(points);
     if (!selection) {
       return this.markMissing(timestamp, "肩・肘・手首・腰・足首を画面に入れてください");
