@@ -4,7 +4,8 @@ import { PushupCounter, type CounterSnapshot, type Landmark } from "./counter";
 import { RepStreakTracker } from "./rep-streak";
 import { Icon } from "./icons";
 import { DailyPage, ChallengePage, RankingPage, SettingsPage } from "./pages";
-import { loadSessions, saveSession, clearSessions, formatDuration, type TrainingSession } from "./training";
+import type {SharedRank} from "./LeaderboardLandscape";
+import { loadSessions, saveSession, clearSessions, formatDuration, trainingTotals, type TrainingSession } from "./training";
 
 type Status = "idle" | "loading" | "running" | "paused" | "error";
 type Tab = "daily" | "challenge" | "ranking" | "settings";
@@ -69,6 +70,12 @@ export default function App() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [saveError, setSaveError] = useState("");
+  const [sharedEntries,setSharedEntries] = useState<SharedRank[]>([]);
+  const [rankOptedIn,setRankOptedIn] = useState(false);
+  const [rankBusy,setRankBusy] = useState(false);
+  const [rankError,setRankError] = useState("");
+  const memberIdLatest=useRef<string|null>(null);
+  memberIdLatest.current=member?.id ?? null;
   const startedAt = useRef<number | null>(null);
   const pausedAt = useRef<number | null>(null);
   const totalPaused = useRef(0);
