@@ -259,7 +259,7 @@ export default function App() {
 
           <div className="counter-panel">
             <div className="count-display">
-              <span className="count-label">回数</span>
+              <span className="count-label">腕立て伏せ <span className="count-label-unit">/ 回数</span></span>
               <div className="count" aria-live="polite" aria-atomic="true">{reading.count}</div>
             </div>
 
@@ -311,6 +311,13 @@ export default function App() {
                 </button>
               )}
             </div>
+          </div>
+        </section>
+        <section className="quick-guide" aria-label="使い方">
+          <span className="quick-guide-title">使い方</span>
+          <div className="quick-guide-steps">
+            <p><span>01</span>スマホを横向きに置き、全身を映す</p>
+            <p><span>02</span>腕を下げて戻すと1回カウント</p>
           </div>
         </section>
       </main>
