@@ -24,7 +24,7 @@ describe("push-up tower height mapping",()=>{
     const j=journeyAt(100);
     expect(j.height).toBe(50);
     expect(j.next?.meters).toBe(333);
-    expect(j.next?.meters-j.height).toBe(283);
+    expect((j.next?.meters ?? 0)-j.height).toBe(283);
     expect(j.progress).toBeGreaterThanOrEqual(0);
     expect(j.progress).toBeLessThanOrEqual(1);
   });
