@@ -96,7 +96,8 @@ describe("KGS11th Weight auth",()=>{
   it("does not treat a user supplied JWT or claimed identity as authenticated",async()=>{
     const f=vi.fn();vi.stubGlobal("fetch",f);
     const r=res();await handler(req("GET",null,{"x-user-id":validMember.id}),r);
-    expect(r.statusCode).toBe(401);
+    expect(r.statusCode).toBe(200);
+    expect(r.data).toEqual({member:null});
     expect(f).not.toHaveBeenCalled();
   });
   it("verifies the KGS session on every session read",async()=>{
