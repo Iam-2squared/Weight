@@ -176,38 +176,39 @@ export default function App() {
 
   useEffect(()=>{
     const id=member?.id ?? null;
-    if(id) void refreshRanking(id);
-    else{
+    if(id){
+      // Logging in to Push UP automatically publishes a zero-or-more rep
+      // aggregate for this KGS member. No separate participation step.
+      void publishRanking(loadSessions(id),id);
+    }else{
       setSharedEntries([]);
       setRankOptedIn(false);
       setRankBusy(false);
       setRankError("");
     }
-    // Ranking state follows the current authenticated KGS identity.
   },[member?.id]);
 
-  const publishRanking=async (participate:boolean,records:TrainingSession[]=sessions) => {
-    if (!member) {
-      setLoginOpen(true);
-      return;
-    }
-    const owner=member.id;
+  const publishRanking=async (
+    records:TrainingSession[]=sessions,owner:string|null=member?.id ?? null
+  ) => {
+    if (!owner) return;
     setRankBusy(true);
     try {
       const totals=trainingTotals(records);
       const response=await fetch("/api/leaderboard",{
         method:"POST",credentials:"same-origin",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(participate?{action:"publish",totalReps:totals.totalReps,
-          bestStreak:totals.bestStreak}:{action:"leave"})
+        body:JSON.stringify({action:"publish",totalReps:totals.totalReps,
+          bestStreak:totals.bestStreak})
       });
       const data=await response.json();
       if(!response.ok||!data.ok)throw new Error("ランキングの更新に失敗しました。");
       if(memberIdLatest.current!==owner)return;
-      setRankOptedIn(participate);
+      setRankOptedIn(true);
       await refreshRanking(owner);
     }catch{
-      if(memberIdLatest.current===owner)setRankError("ランキングを更新できません。KGS連携を確認してください。");
+      if(memberIdLatest.current===owner)
+        setRankError("ランキングを更新できません。KGS連携を確認してください。");
     }finally{
       if(memberIdLatest.current===owner)setRankBusy(false);
     }
@@ -433,7 +434,8 @@ export default function App() {
         const saved = saveSession(measureAccount.current,record);
         if (measureAccount.current === (member?.id ?? null)) {
           setSessions(saved);
-          if(rankOptedIn && member)void publishRanking(true,saved);
+          // Every KGS login is automatically listed; keep it up to date.
+          if(member)void publishRanking(saved,member.id);
         }
       } catch {
         setSaveError("保存できませんでした。端末の保存容量を確認してください。");
@@ -451,8 +453,8 @@ export default function App() {
       clearSessions(member?.id ?? null);
       setSessions([]);
       setSaveError("");
-      // Removing all local history also withdraws a published scoreboard.
-      if(rankOptedIn && member)void publishRanking(false);
+      // This button deletes only this device's history, not the shared
+      // lifetime leaderboard. No implicit unsubscribe from an active login.
     } catch {
       setSaveError("記録を削除できませんでした。");
     }
@@ -539,7 +541,6 @@ export default function App() {
             {tab==="challenge" && <ChallengePage sessions={sessions} onStart={enterMeasurement}/>}
             {tab==="ranking" && <RankingPage sessions={sessions} member={member}
               entries={sharedEntries} optedIn={rankOptedIn} loading={rankBusy} error={rankError}
-              onPublish={()=>void publishRanking(true)} onLeave={()=>void publishRanking(false)}
               onRefresh={()=>void refreshRanking()} onLogin={()=>{setLoginError("");setLoginOpen(true);}}
               onChallenge={()=>setTab("challenge")}/>}
             {tab==="settings" && <SettingsPage member={member} sound={sound} onSoundChange={setSoundPreference}
