@@ -1,5 +1,5 @@
 import {useRef} from "react";
-import {heightInMeters,heightLabel,journeyAt,type Scene} from "./TowerJourney";
+import {heightInMeters,heightLabel,journeyAt,RANKING_SCENE_ASSETS,type Scene} from "./TowerJourney";
 
 export type RankMetric="bestStreak"|"totalReps";
 export interface SharedRank {
@@ -33,48 +33,12 @@ export function buildLanes(entries:readonly SharedRank[],metric:RankMetric,
 }
 
 function SceneArt({scene}:{scene:Scene}) {
- if(scene==="gym")return <g>
-  <rect width="220" height="320" fill="#DDE5E7"/>
-  <path d="M0 85H220M0 170H220M0 255H220M68 0V320M151 0V320" stroke="#B5C7CF" strokeWidth="2"/>
-  <g stroke="#607A91" strokeWidth="5" fill="none" strokeLinecap="round"><path d="M20 243V140H50V243M9 188H61M174 256V181H196V256M165 200H208"/></g>
-  <text x="15" y="33" fill="#8B9FAE" fontSize="11" fontWeight="800" letterSpacing="2">GYM</text>
- </g>;
- if(["roof","city","skytree"].includes(scene))return <g>
-   <rect width="220" height="320" fill="#C5DDE8"/>
-   <circle cx="187" cy="46" r="25" fill="#F5E6B9"/>
-   <path d="M0 218L22 206L52 220L85 197L115 214L165 204L220 225V320H0Z" fill="#B4C9D4"/>
-   <g fill="#819DB1"><rect x="3" y="160" width="42" height="160"/><rect x="42" y="185" width="35" height="135"/><rect x="80" y="147" width="38" height="173"/><rect x="156" y="176" width="64" height="144"/></g>
-   <g fill="#C7D9E1"><rect x="16" y="179" width="8" height="9"/><rect x="90" y="164" width="8" height="9"/><rect x="172" y="192" width="9" height="11"/></g>
-   {scene==="roof" && <path d="M0 237L56 230L83 241L105 214L127 241L149 229L220 236" stroke="#526B7E" strokeWidth="10" fill="none"/>}
-   {scene==="skytree" && <g stroke="#3F647C" fill="none" strokeLinecap="round">
-      <path d="M125 279L140 46L155 279M140 46V20" strokeWidth="4"/>
-      <path d="M132 159H148M135 114H145M130 204H150M127 246H153" strokeWidth="7"/>
-      <path d="M127 240L150 197M131 195L147 153" strokeWidth="2"/>
-   </g>}
- </g>;
- if(scene==="fuji")return <g>
-  <rect width="220" height="320" fill="#C5DEE9"/>
-  <circle cx="181" cy="48" r="24" fill="#FFF0D0"/>
-  <path d="M-5 301L109 60L229 301Z" fill="#5D819C"/>
-  <path d="M79 122L109 60L143 128L125 114L105 130L93 112Z" fill="#F2F3F2"/>
-  <path d="M0 265L58 244L103 273L149 251L220 270V320H0Z" fill="#89ABB4"/>
- </g>;
- if(scene==="clouds")return <g>
-  <rect width="220" height="320" fill="#9DC9DC"/>
-  <circle cx="182" cy="45" r="27" fill="#FFF1D4"/>
-  <g fill="#F2F7F7"><ellipse cx="60" cy="81" rx="56" ry="17"/><ellipse cx="33" cy="68" rx="24" ry="19"/><ellipse cx="167" cy="194" rx="60" ry="22"/><ellipse cx="139" cy="177" rx="32" ry="22"/><ellipse cx="70" cy="257" rx="72" ry="26"/></g>
- </g>;
- return <g>
-  <rect width="220" height="320" fill="#172A43"/>
-  {Array.from({length:20},(_,i)=><circle key={i} cx={(i*73+11)%220} cy={(i*37+29)%258}
-    r={i%5===0?2:1} fill="#ECF4F8"/>)}
-  <path d="M-40 330Q110 150 260 330Z" fill="#3E779A"/>
-  {scene==="moon"&&<g><circle cx="165" cy="73" r="49" fill="#E4E4E1"/>
-    <circle cx="145" cy="63" r="10" fill="#B7C6D0"/><circle cx="180" cy="91" r="7" fill="#B7C6D0"/></g>}
- </g>;
+  return <g>
+    <rect width="220" height="320" fill="#DCE4E8"/>
+    <image href={RANKING_SCENE_ASSETS[scene]} width="220" height="320"
+      preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
+  </g>;
 }
-const THEMES:Record<Scene,string>={gym:"ジム",roof:"屋根を突破",city:"東京の街",skytree:"スカイツリー",
-  fuji:"富士山",clouds:"雲の上",space:"宇宙",moon:"月"};
 
 function RankerGraphic({entry,value,maxValue,index}:{entry:RankLane;value:number;maxValue:number;index:number}){
   const journey=journeyAt(value),scene=journey.scene;

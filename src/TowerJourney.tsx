@@ -40,69 +40,16 @@ const stars = Array.from({length:28},(_,i)=>({
   x:15+(i*79)%395,y:15+(i*49)%265,small:i%4===0
 }));
 
-function Gym() { return <g>
-  <rect width="440" height="460" fill="#EBE8DF"/>
-  <path d="M0 0H440V450H0Z" fill="#DCE4E8"/>
-  <path d="M0 98H440M0 192H440M0 286H440" stroke="#B7C9D1" strokeWidth="2"/>
-  <path d="M108 0V350M335 0V350" stroke="#B7C9D1" strokeWidth="2"/>
-  <rect y="355" width="440" height="105" fill="#B8C5CE"/>
-  <path d="M0 356H440M0 403H440" stroke="#8095A6" strokeWidth="4"/>
-  <g stroke="#526579" strokeWidth="7" strokeLinecap="round" fill="none">
-    <path d="M25 325V180H60V325M10 234H75M21 278H65"/>
-    <path d="M365 335V240M338 240H405M350 240V285M389 240V285"/>
-  </g>
-  <path d="M16 190H74" stroke="#334155" strokeWidth="10" strokeLinecap="round"/>
-  <path d="M353 285H396" stroke="#334155" strokeWidth="12" strokeLinecap="round"/>
-  <text x="22" y="53" fill="#879EAC" fontWeight="800" fontSize="16" letterSpacing="5">WEIGHT GYM</text>
- </g>; }
-
-function City({roof=false,skyTree=false}:{roof?:boolean;skyTree?:boolean}) {return <g>
- <rect width="440" height="460" fill="#DCE9F0"/>
- <circle cx="365" cy="85" r="39" fill="#F5E6BC"/>
- <path d="M0 320Q66 278 118 324T250 307T440 310V460H0Z" fill="#C7D9DF"/>
- <g fill="#8FAABE"><rect x="0" y="230" width="75" height="230"/><rect x="56" y="265" width="65" height="195"/><rect x="105" y="205" width="57" height="255"/><rect x="260" y="245" width="70" height="215"/><rect x="325" y="193" width="115" height="267"/></g>
- <g fill="#607D96"><rect x="13" y="261" width="12" height="24"/><rect x="39" y="261" width="12" height="24"/><rect x="119" y="237" width="13" height="20"/><rect x="341" y="229" width="16" height="21"/><rect x="371" y="229" width="16" height="21"/><rect x="341" y="269" width="16" height="21"/><rect x="371" y="269" width="16" height="21"/></g>
- <g stroke="#A44F4C" strokeWidth="5" strokeLinecap="round" fill="none">
-   <path d="M290 360L299 181L308 360M299 181V133M292 165H306M286 222H314M281 270H321M274 317H326" />
- </g>
- {skyTree && <g stroke="#4C6981" fill="none" strokeLinecap="round">
-   <path d="M364 370L381 95L399 370" strokeWidth="5"/>
-   <path d="M371 262H393M373 220H390M375 186H389M377 151H386" strokeWidth="8"/>
-   <path d="M381 95V50" strokeWidth="3"/>
-   <path d="M372 275L396 215M369 319L398 266M397 320L368 265" strokeWidth="2"/>
- </g>}
- {roof&&<g><path d="M0 355L110 350L165 364L192 344L214 374L235 351L274 361L440 345" stroke="#536B80" strokeWidth="13" fill="none"/><path d="M186 337l-14-18-19 9m80-1 15-20 20 16" stroke="#647C93" strokeWidth="6" fill="none"/></g>}
- <rect y="416" width="440" height="44" fill="#8A9EAC"/>
- </g>;}
-
-function Fuji() {return <g>
- <rect width="440" height="460" fill="#C7DEE8"/>
- <circle cx="366" cy="75" r="33" fill="#FFF2D8"/>
- <path d="M0 308Q63 286 120 313T250 309T440 302V460H0Z" fill="#B0CBD8"/>
- <path d="M22 430L206 97L426 430Z" fill="#557994"/>
- <path d="M156 192L206 97L266 204L230 180L201 196L182 174Z" fill="#F0F3F0"/>
- <path d="M0 400L98 348L146 400L211 359L308 405L384 348L440 378V460H0Z" fill="#8BACAE"/>
- <g fill="#EBF1F2"><ellipse cx="78" cy="151" rx="52" ry="13"/><ellipse cx="370" cy="205" rx="64" ry="14"/></g>
- </g>;}
-
-function Clouds(){return <g>
- <rect width="440" height="460" fill="#A9CCD9"/>
- <circle cx="355" cy="70" r="32" fill="#FFF2CF"/>
- <g fill="#F2F7F6"><ellipse cx="66" cy="129" rx="65" ry="22"/><ellipse cx="103" cy="118" rx="34" ry="23"/><ellipse cx="352" cy="224" rx="85" ry="25"/><ellipse cx="321" cy="201" rx="40" ry="25"/><ellipse cx="103" cy="346" rx="102" ry="30"/><ellipse cx="372" cy="385" rx="90" ry="28"/></g>
- <path d="M0 429Q120 404 225 432T440 419V460H0Z" fill="#DEECED"/>
- </g>;}
-
-function Space({moon=false}:{moon?:boolean}){return <g>
- <rect width="440" height="460" fill="#17253A"/>
- {stars.map((s,i)=><circle key={i} cx={s.x} cy={s.y} r={s.small?2.3:1.25} fill="#DAE8EF" opacity={i%3===0?.65:.95}/>)}
- <path d="M-40 490Q220 220 480 489Z" fill="#467C9A"/>
- <path d="M-40 490Q220 225 480 489" fill="none" stroke="#B1D5DD" strokeWidth="10"/>
- <path d="M25 420Q160 344 292 409T430 424" stroke="#CEE7E5" strokeWidth="13" fill="none" opacity=".5"/>
- <circle cx="350" cy={moon?143:107} r={moon?88:42} fill="#E2E3E3"/>
- <circle cx={moon?327:342} cy={moon?125:97} r={moon?17:10} fill="#B8C2CD"/>
- <circle cx={moon?380:367} cy={moon?165:121} r={moon?12:7} fill="#B8C2CD"/>
- <circle cx={moon?353:351} cy={moon?191:115} r={moon?19:4} fill="#CAD1D8"/>
- </g>;}
+export const RANKING_SCENE_ASSETS: Record<Scene,string> = Object.freeze({
+  gym: "/ranking-scenes/gym.webp",
+  roof: "/ranking-scenes/roof.webp",
+  city: "/ranking-scenes/city.webp",
+  skytree: "/ranking-scenes/skytree.webp",
+  fuji: "/ranking-scenes/fuji.webp",
+  clouds: "/ranking-scenes/clouds.webp",
+  space: "/ranking-scenes/space.webp",
+  moon: "/ranking-scenes/moon.webp",
+});
 
 function PersonSymbol(){return <g id="weight-pushup-person" strokeLinecap="round" strokeLinejoin="round">
   {/* A person in the bottom of a push-up: torso low, elbows bent, palm near floor. */}
@@ -129,13 +76,9 @@ export function TowerJourney({reps,metricName}:Props) {
   <svg className="journey-art" viewBox="0 0 440 460" role="img"
     aria-label={metricName+" "+count+"回。1人約50cm換算で"+heightLabel(data.height)+"。現在の背景："+sceneText}>
     <defs><PersonSymbol/></defs>
-    {data.scene==="gym" && <Gym/>}
-    {data.scene==="roof" && <City roof/>}
-    {data.scene==="city" && <City/>}
-    {data.scene==="skytree" && <City skyTree/>}
-    {data.scene==="fuji" && <Fuji/>}
-    {data.scene==="clouds" && <Clouds/>}
-    {sky && <Space moon={data.scene==="moon"}/>}
+    <rect width="440" height="460" fill="#DCE4E8"/>
+    <image href={RANKING_SCENE_ASSETS[data.scene]} width="440" height="460"
+      preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
     <g className="journey-meter">
       <path d="M32 72V413M27 413H37M27 335H37M27 257H37M27 179H37M27 101H37" stroke={sky?"#C3D7E4":"#526B80"} strokeWidth="1.5" strokeDasharray="3 5" fill="none"/>
       <rect x="9" y="385" width="63" height="25" rx="7" fill="#FFFFFF" opacity=".91"/>

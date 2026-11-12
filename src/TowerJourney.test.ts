@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {HEIGHT_LANDMARKS, heightInMeters, heightLabel, journeyAt} from "./TowerJourney";
+import {HEIGHT_LANDMARKS, RANKING_SCENE_ASSETS, heightInMeters, heightLabel, journeyAt} from "./TowerJourney";
 
 describe("push-up tower height mapping",()=>{
   it("converts each repetition to exactly half a meter",()=>{
@@ -27,5 +27,15 @@ describe("push-up tower height mapping",()=>{
     expect((j.next?.meters ?? 0)-j.height).toBe(283);
     expect(j.progress).toBeGreaterThanOrEqual(0);
     expect(j.progress).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("premium lightweight ranking backgrounds",()=>{
+  it("uses exactly eight optimized WebP assets in the scene registry",()=>{
+    expect(Object.keys(RANKING_SCENE_ASSETS)).toHaveLength(8);
+    expect(new Set(Object.values(RANKING_SCENE_ASSETS)).size).toBe(8);
+    for(const path of Object.values(RANKING_SCENE_ASSETS)){
+      expect(path.startsWith("/ranking-scenes/") && path.endsWith(".webp")).toBe(true);
+    }
   });
 });
