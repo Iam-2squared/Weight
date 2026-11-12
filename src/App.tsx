@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
+import type { PoseLandmarker } from "@mediapipe/tasks-vision";
 import { PushupCounter, type CounterSnapshot, type Landmark } from "./counter";
 import { Icon } from "./icons";
 import { DailyPage, ChallengePage, RankingPage, SettingsPage } from "./pages";
@@ -225,6 +225,8 @@ export default function App() {
       video.srcObject = stream;
       await video.play();
       if (session !== generation.current) return;
+      // Lazy-load the pose engine only when a workout camera actually starts.
+      const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
       const vision = await FilesetResolver.forVisionTasks(WASM);
       if (session !== generation.current) return;
       let pose: PoseLandmarker;
