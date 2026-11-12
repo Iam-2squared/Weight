@@ -551,3 +551,6 @@ button:disabled { opacity: .55; cursor: wait; }
 @media (prefers-reduced-motion:reduce){
   .landscape-scroll{scroll-behavior:auto;}
 }
+
+/* Clear disclosure when account login automatically publishes leaderboard records. */
+.login-ranking-notice {font-size:11px;line-height:1.65;color:#667A8F;margin:-12px 0 18px;padding:10px 12px;border:1px solid #DFE6EC;border-radius:9px;background:#F4F6F8;}
