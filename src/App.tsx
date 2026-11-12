@@ -153,14 +153,17 @@ export default function App() {
     if (!standalone) return;
 
     const resetScroll = () => window.scrollTo({ left: 0, top: 0, behavior: "auto" });
-    const onPageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) resetScroll();
+    const onPageShow = () => resetScroll();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") resetScroll();
     };
     const frame = window.requestAnimationFrame(resetScroll);
     window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
