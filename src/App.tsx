@@ -541,7 +541,7 @@ export default function App() {
             {tab==="challenge" && <ChallengePage sessions={sessions} onStart={enterMeasurement}/>}
             {tab==="ranking" && <RankingPage sessions={sessions} member={member}
               entries={sharedEntries} optedIn={rankOptedIn} loading={rankBusy} error={rankError}
-              onRefresh={()=>void refreshRanking()} onLogin={()=>{setLoginError("");setLoginOpen(true);}}
+              onRefresh={()=>void publishRanking()} onLogin={()=>{setLoginError("");setLoginOpen(true);}}
               onChallenge={()=>setTab("challenge")}/>}
             {tab==="settings" && <SettingsPage member={member} sound={sound} onSoundChange={setSoundPreference}
               onLogin={()=>{setLoginError("");setLoginOpen(true);}} onLogout={()=>void signOut()}
