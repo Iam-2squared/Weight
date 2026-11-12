@@ -101,15 +101,13 @@ export interface RankingProps {
   optedIn: boolean;
   loading: boolean;
   error: string;
-  onPublish: ()=>void;
-  onLeave: ()=>void;
   onRefresh: ()=>void;
   onLogin: ()=>void;
   onChallenge: ()=>void;
 }
 export function RankingPage({
   sessions,member,entries,optedIn,loading,error,
-  onPublish,onLeave,onRefresh,onLogin,onChallenge
+  onRefresh,onLogin,onChallenge
 }:RankingProps){
   const [metric,setMetric]=useState<RankMetric>("bestStreak");
   const totals=trainingTotals(sessions);
@@ -127,16 +125,13 @@ export function RankingPage({
     <section className="shared-ranking-bar">
       <div>
         <strong>{member?"KGS共有ランキング":"自分の記録"}</strong>
-        <span>{member ? (optedIn?"あなたは参加中": "参加すると自分の名前と記録が表示されます")
+        <span>{member ? (loading ? "ランキングを同期中…" : "KGSログインユーザーは自動でランキングに表示")
           :"ほかのユーザーを見るにはKGS 11thにログイン"}</span>
       </div>
       <div className="shared-ranking-actions">
-        {member ? <>
-          <button type="button" className="ranking-refresh" disabled={loading} onClick={onRefresh}
-            aria-label="ランキングを更新">↻</button>
-          <button type="button" className="ranking-share" disabled={loading}
-            onClick={optedIn?onLeave:onPublish}>{loading?"更新中…":optedIn?"退出する":"参加する"}</button>
-        </> : <button type="button" className="ranking-share" onClick={onLogin}>ログイン</button>}
+        {member ? <button type="button" className="ranking-refresh" disabled={loading}
+          onClick={onRefresh} aria-label="ランキングを更新">↻</button>
+          : <button type="button" className="ranking-share" onClick={onLogin}>ログイン</button>}
       </div>
     </section>
     {error&&<p className="ranking-error" role="status">{error}</p>}
@@ -156,7 +151,7 @@ export function RankingPage({
     </section>
     {sessions.some(s=>s.bestStreak===undefined)&&
       <p className="micro-note">旧記録は総合回数に含まれます。最高連続は新しい計測から集計します。</p>}
-    <p className="micro-note">他のユーザーは、共有を許可したKGSメンバーだけ表示されます。高さは演出上の換算値です。</p>
+    <p className="micro-note">Push UPにログインしたKGSメンバーの表示名と回数が、自動で共有されます。ほかのKGSメンバー以外には公開しません。高さは演出上の換算値です。</p>
   </>;
 }
 
