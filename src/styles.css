@@ -469,3 +469,85 @@ button:disabled { opacity: .55; cursor: wait; }
 @media (prefers-reduced-motion:reduce) {
  .journey-progress>span { transition: none; }
 }
+
+
+/* Shared horizontal panorama. Scenery and athletes live in the same scroll row. */
+.shared-ranking-bar {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 15px;margin-bottom:14px;
+  background:#FFFFFF;border:1px solid #BAC8D4;border-radius:13px;
+}
+.shared-ranking-bar>div:first-child {display:flex;flex-direction:column;gap:5px;min-width:0;}
+.shared-ranking-bar strong {font-size:13px;color:#334155;}
+.shared-ranking-bar span {font-size:11px;line-height:1.5;color:#71839A;}
+.shared-ranking-actions {display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.ranking-share,.ranking-refresh {
+  border:1px solid #334155;border-radius:9px;padding:10px 13px;
+  color:#FFFFFF;background:#334155;font-size:12px;font-weight:740;
+}
+.ranking-refresh {font-size:20px;width:39px;height:38px;padding:0;display:grid;place-items:center;background:#FFFFFF;color:#334155;}
+.ranking-share:disabled,.ranking-refresh:disabled{opacity:.55;cursor:wait;}
+.ranking-error {color:#904C45;background:#FFF2EA;border:1px solid #DFB8A8;
+  border-radius:10px;padding:10px 12px;margin:0 0 14px;font-size:12px;line-height:1.6;}
+.landscape-section {
+  background:#FFFFFF;border:1px solid #BAC8D4;border-radius:16px;
+  padding:16px 0 0;overflow:hidden;
+}
+.landscape-top {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 15px 14px;}
+.landscape-top>div:first-child {display:flex;flex-direction:column;gap:4px;}
+.landscape-top strong {font-size:13px;color:#334155;}
+.landscape-top span {font-size:11px;color:#7890A1;}
+.landscape-arrows {display:flex;gap:7px;}
+.landscape-arrows button {
+  width:34px;height:34px;border:1px solid #B4C3CF;
+  border-radius:9px;background:#F4F2EC;color:#334155;
+  font-size:27px;line-height:1;display:grid;place-items:center;
+}
+.landscape-scroll {
+  overflow-x:auto;overflow-y:hidden;width:100%;min-width:0;
+  -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;scroll-padding-inline:16px;
+  touch-action:pan-x pan-y;
+  padding:3px 16px 16px;scrollbar-color:#9FB3C8 #EBF0F3;
+}
+.landscape-scroll:focus-visible{outline:3px solid #9FB3C8;outline-offset:-3px;}
+.landscape-track {display:flex;align-items:stretch;gap:13px;width:max-content;min-width:100%;}
+.ranker-card {
+  flex:0 0 217px;width:217px;min-width:0;scroll-snap-align:start;
+  background:#F6F8FA;border:1px solid #C3CFD9;border-radius:14px;
+  overflow:hidden;display:flex;flex-direction:column;
+}
+.ranker-card.is-self{border-color:#617F98;box-shadow:0 0 0 1px #9FB3C8 inset;}
+.ranker-identity{display:flex;align-items:center;gap:9px;padding:13px 12px;background:#FFFFFF;min-height:65px;}
+.ranker-position{
+  min-width:38px;text-align:center;padding:6px 5px;
+  border-radius:8px;background:#E5ECF1;color:#334155;
+  font-weight:850;font-size:12px;
+}
+.ranker-card:first-child .ranker-position{background:#334155;color:#FFFFFF;}
+.ranker-identity>div {display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
+.ranker-identity strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#334155;}
+.ranker-identity span:not(.ranker-position){font-size:10px;color:#8798A9;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.ranker-illustration{width:100%;height:auto;aspect-ratio:220/320;display:block;flex:1;}
+.ranker-stats{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:12px 13px;
+  background:#FFFFFF;border-top:1px solid #D6E0E7;}
+.ranker-stats strong{font-weight:850;font-size:23px;color:#334155;letter-spacing:-.04em;white-space:nowrap;}
+.ranker-stats small{font-size:11px;font-weight:610;}
+.ranker-stats span{font-size:11px;color:#66849B;font-weight:740;white-space:nowrap;}
+.landscape-footnote{border-top:1px solid #E4EBF0;background:#F6F8FA;
+  color:#72889B;font-size:10px;line-height:1.65;padding:11px 16px;margin:0;}
+.landscape-empty{padding:36px 18px;background:#FFFFFF;border:1px dashed #BAC8D4;
+  border-radius:16px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.landscape-empty strong{font-size:15px;color:#334155;}
+.landscape-empty span{font-size:12px;color:#7A8D9F;text-align:center;}
+@media (max-width:760px){
+  .shared-ranking-bar{padding:12px;align-items:flex-start;gap:6px;}
+  .shared-ranking-actions{gap:5px;}
+  .ranking-share{padding:9px 10px;font-size:11px;}
+  .landscape-scroll{scroll-padding-inline:12px;padding:3px 12px 14px;}
+  .landscape-top{padding:0 12px 13px;}
+  .ranker-card{flex-basis:198px;width:198px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .landscape-scroll{scroll-behavior:auto;}
+}
