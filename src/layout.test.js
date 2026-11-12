@@ -45,3 +45,19 @@ describe("lightweight first paint", () => {
     expect(app).not.toContain('import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision"');
   });
 });
+
+
+describe("automatic member leaderboard", () => {
+  it("syncs every KGS login and keeps ranking guest-gated", () => {
+    const app=readFileSync(new URL("./App.tsx",import.meta.url),"utf8");
+    const page=readFileSync(new URL("./pages.tsx",import.meta.url),"utf8");
+    expect(app).toContain("void publishRanking(loadSessions(id),id)");
+    expect(app).toContain("if(member)void publishRanking(saved,member.id)");
+    expect(page).not.toContain("参加する");
+    expect(page).not.toContain("退出する");
+    expect(page).not.toContain("onPublish");
+    expect(page).not.toContain("onLeave");
+    expect(page).toContain("KGSログインユーザーは自動でランキングに表示");
+    expect(page).toContain("entries={member?entries:[]}");
+  });
+});
