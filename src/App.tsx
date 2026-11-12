@@ -18,13 +18,13 @@ function draw(canvas: HTMLCanvasElement, landmarks: readonly Landmark[] | undefi
   const shown = (p: Landmark | undefined) => !!p && (p.visibility ?? 1) >= 0.52;
   ctx.lineWidth = Math.max(3, width * 0.004);
   ctx.lineCap = "round";
-  ctx.strokeStyle = "#b7f6bf";
+  ctx.strokeStyle = "#9FB3C8";
   for (const [i,j] of EDGES) {
     const a = landmarks[i], b = landmarks[j];
     if (!shown(a) || !shown(b)) continue;
     ctx.beginPath(); ctx.moveTo(a.x * width, a.y * height); ctx.lineTo(b.x * width, b.y * height); ctx.stroke();
   }
-  ctx.fillStyle = "#e5fff0";
+  ctx.fillStyle = "#F4F2EC";
   for (const i of [11,12,13,14,15,16,23,24,25,26,27,28]) {
     const p = landmarks[i];
     if (!shown(p)) continue;
