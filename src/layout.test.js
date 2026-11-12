@@ -61,3 +61,29 @@ describe("automatic member leaderboard", () => {
     expect(page).toContain("entries={member?entries:[]}");
   });
 });
+
+
+describe("immersive two-axis shared rankings", () => {
+  it("removes landmark goal cards and fits the entire rank page inside iOS safe areas", () => {
+    const page = readFileSync(new URL("./pages.tsx", import.meta.url), "utf8");
+    const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    const world = readFileSync(new URL("./LeaderboardLandscape.tsx", import.meta.url), "utf8");
+    expect(page).not.toContain('className="ranking-milestones"');
+    expect(page).toContain('className="ranking-immersive"');
+    expect(app).toContain('ranking-app-main');
+    expect(app).toContain('is-ranking');
+    expect(world).toContain('className="ranking-world-viewport"');
+    expect(world).toContain('className="ranking-world"');
+    expect(world).not.toContain('className="ranker-card"');
+    expect(block(".ranking-world-viewport")).toContain("overflow: auto");
+    expect(block(".ranking-app-main")).toContain("safe-area-inset-bottom");
+    expect(styles).toContain("touch-action: pan-x pan-y");
+  });
+  it("repeats one push-up silhouette using CSS instead of thousands of DOM elements", () => {
+    const world = readFileSync(new URL("./LeaderboardLandscape.tsx", import.meta.url), "utf8");
+    expect(world).toContain('className="world-person-stack"');
+    expect(world).toContain('className="world-stack-pattern"');
+    expect(styles).toContain('url("/ranking-scenes/pushup-person.svg")');
+    expect(styles).toContain("background-repeat: repeat-y");
+  });
+});
