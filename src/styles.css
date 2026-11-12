@@ -29,7 +29,7 @@ button:disabled { opacity: .5; cursor: wait; }
 }
 .app-main {
   flex: 1; width: 100%;
-  display: flex; justify-content: center; align-items: center;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
   padding: 28px 22px 42px;
 }
 .workout {
@@ -100,6 +100,19 @@ button:disabled { opacity: .5; cursor: wait; }
   max-width: 100%; overflow-wrap: anywhere;
   padding-right: .085em;
 }
+.count-label-unit { color: #697e75; font-weight: 500; }
+.quick-guide {
+  width: min(1120px, 100%);
+  display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+  padding: 19px 3px 0; margin-top: 24px;
+  border-top: 1px solid #273334;
+}
+.quick-guide-title {
+  font-size: 12px; color: #b6c3bb; font-weight: 660; white-space: nowrap;
+}
+.quick-guide-steps { display: flex; flex: 1; gap: 28px; align-items: center; flex-wrap: wrap; }
+.quick-guide-steps p { margin: 0; display: flex; gap: 10px; align-items: center; color: #94a6a0; font-size: 12px; line-height: 1.65; }
+.quick-guide-steps p span { color: #b9efc1; font-size: 11px; font-weight: 740; }
 .controls { display: flex; gap: 9px; width: 100%; align-items: stretch; }
 .main-action, .icon-action {
   border-radius: 11px; border: 1px solid #354346;
@@ -130,6 +143,10 @@ button:disabled { opacity: .5; cursor: wait; }
   .count-label { font-size: 12px; }
   .count { font-size: clamp(100px, 27vw, 148px); line-height: .9; }
   .controls { gap: 9px; }
+  .quick-guide { margin-top: 20px; padding: 18px 1px 0; gap: 10px; }
+  .quick-guide-title { font-size: 12px; }
+  .quick-guide-steps { flex: 1 0 100%; gap: 9px; flex-direction: column; align-items: flex-start; }
+  .quick-guide-steps p { font-size: 12px; }
 }
 @media (max-width: 390px) {
   .camera-top { left: 13px; right: 13px; top: 13px; }
