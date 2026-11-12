@@ -71,6 +71,13 @@ describe("push-up counting", () => {
     expect(result.count).toBe(0);
   });
 
+  it("does not finish an old rep after a long gap between video frames", () => {
+    const counter = new PushupCounter();
+    feed(counter, [top(), top(), mid(), bottom(), bottom(), bottom()]);
+    const result = feed(counter, [top(), top()], 3000);
+    expect(result.count).toBe(0);
+  });
+
   it("can reset counts manually", () => {
     const counter = new PushupCounter();
     feed(counter, [top(), top(), mid(), bottom(), bottom(), bottom(), top(), top(), top()]);
