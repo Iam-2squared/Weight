@@ -36,3 +36,12 @@ describe("measurement orientation notice", () => {
     expect(styles).toContain("min-height: 245px");
   });
 });
+
+
+describe("lightweight first paint", () => {
+  it("loads MediaPipe only on camera start, keeping the daily screen lighter", () => {
+    const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    expect(app).toContain('await import("@mediapipe/tasks-vision")');
+    expect(app).not.toContain('import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision"');
+  });
+});
