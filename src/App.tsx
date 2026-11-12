@@ -145,6 +145,74 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [measuring]);
 
+
+  const refreshRanking = async (owner: string | null = member?.id ?? null) => {
+    if (!owner) {
+      setSharedEntries([]);
+      setRankOptedIn(false);
+      setRankError("");
+      return;
+    }
+    setRankBusy(true);
+    try {
+      const response=await fetch("/api/leaderboard",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if (!response.ok||!Array.isArray(data.entries)||typeof data.optedIn!=="boolean") {
+        throw new Error(data.error||"共有ランキングを取得できませんでした。");
+      }
+      if (memberIdLatest.current===owner){
+        setSharedEntries(data.entries.slice(0,60));
+        setRankOptedIn(data.optedIn);
+        setRankError("");
+      }
+    }catch{
+      if (memberIdLatest.current===owner){
+        setRankError("共有ランキングに接続できません。ローカル記録は利用できます。");
+      }
+    }finally{
+      if (memberIdLatest.current===owner)setRankBusy(false);
+    }
+  };
+
+  useEffect(()=>{
+    const id=member?.id ?? null;
+    if(id) void refreshRanking(id);
+    else{
+      setSharedEntries([]);
+      setRankOptedIn(false);
+      setRankBusy(false);
+      setRankError("");
+    }
+    // Ranking state follows the current authenticated KGS identity.
+  },[member?.id]);
+
+  const publishRanking=async (participate:boolean,records:TrainingSession[]=sessions) => {
+    if (!member) {
+      setLoginOpen(true);
+      return;
+    }
+    const owner=member.id;
+    setRankBusy(true);
+    try {
+      const totals=trainingTotals(records);
+      const response=await fetch("/api/leaderboard",{
+        method:"POST",credentials:"same-origin",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(participate?{action:"publish",totalReps:totals.totalReps,
+          bestStreak:totals.bestStreak}:{action:"leave"})
+      });
+      const data=await response.json();
+      if(!response.ok||!data.ok)throw new Error("ランキングの更新に失敗しました。");
+      if(memberIdLatest.current!==owner)return;
+      setRankOptedIn(participate);
+      await refreshRanking(owner);
+    }catch{
+      if(memberIdLatest.current===owner)setRankError("ランキングを更新できません。KGS連携を確認してください。");
+    }finally{
+      if(memberIdLatest.current===owner)setRankBusy(false);
+    }
+  };
+
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (loginBusy) return;
