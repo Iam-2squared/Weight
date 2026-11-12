@@ -23,3 +23,16 @@ describe("iPhone home-screen app layout", () => {
     expect(block(".login-backdrop")).toContain("overflow-y: auto");
   });
 });
+
+describe("measurement orientation notice", () => {
+  it("shows a yellow triangular landscape warning only in portrait mobile layout", () => {
+    const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    expect(app).toContain('className="orientation-warning"');
+    expect(app).toContain("<strong>横向き！</strong>");
+    expect(app).toContain('viewBox="0 0 72 68"');
+    expect(styles).toContain("#F8CC30");
+    expect(styles).toContain("@media (max-width: 760px) and (orientation: portrait)");
+    expect(block(".orientation-warning")).toContain("display: none");
+    expect(styles).toContain("min-height: 245px");
+  });
+});
