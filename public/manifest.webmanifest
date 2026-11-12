@@ -1,0 +1,11 @@
+{
+  "name": "Weight — Push-up Counter",
+  "short_name": "Weight",
+  "description": "端末内でAI姿勢推定を行う腕立てカウンター",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F2EC",
+  "theme_color": "#F4F2EC",
+  "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
