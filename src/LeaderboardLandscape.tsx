@@ -25,7 +25,8 @@ export function buildLanes(entries:readonly SharedRank[],metric:RankMetric,
   optedIn:boolean):RankLane[]{
   const ordered=sortLeaderboard(entries,metric);
   const lanes=ordered.map((entry,i)=>({...entry,rank:i+1,isSelf:!!self&&entry.memberId===self.memberId,unpublished:false}));
-  if(self&&!lanes.some(x=>x.memberId===self.memberId)){
+  if(self&&(!optedIn||!lanes.some(x=>x.memberId===self.memberId))&&
+    !lanes.some(x=>x.memberId===self.memberId)){
     lanes.push({...self,rank:null,isSelf:true,unpublished:true});
   }
   return lanes;
@@ -75,7 +76,7 @@ function SceneArt({scene}:{scene:Scene}) {
 const THEMES:Record<Scene,string>={gym:"ジム",roof:"屋根を突破",city:"東京の街",skytree:"スカイツリー",
   fuji:"富士山",clouds:"雲の上",space:"宇宙",moon:"月"};
 
-function RankerGraphic({entry,value,maxValue,index,metric}:{entry:RankLane;value:number;maxValue:number;index:number;metric:RankMetric}){
+function RankerGraphic({entry,value,maxValue,index}:{entry:RankLane;value:number;maxValue:number;index:number}){
   const journey=journeyAt(value),scene=journey.scene;
   const towerMaxHeight=220;
   const height=value===0?0:Math.max(7,Math.round(towerMaxHeight*value/Math.max(1,maxValue)));
@@ -145,7 +146,7 @@ export function LeaderboardLandscape({entries,metric,self,optedIn}:{entries:Shar
               <div><strong>{entry.isSelf?"あなた":entry.name}</strong>
                 <span>{entry.unpublished?"未公開の個人記録":entry.name+(entry.isSelf?"（自分）":"")}</span></div>
             </div>
-            <RankerGraphic entry={entry} metric={metric} value={count} maxValue={maxValue} index={index}/>
+            <RankerGraphic entry={entry} value={count} maxValue={maxValue} index={index}/>
             <div className="ranker-stats">
               <strong>{count.toLocaleString("ja-JP")}<small> 回</small></strong>
               <span>{heightLabel(heightInMeters(count))}</span>
