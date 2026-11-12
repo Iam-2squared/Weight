@@ -361,3 +361,40 @@ button:disabled { opacity: .55; cursor: wait; }
   .settings-row-label { gap: 9px; }
 }
 @media (prefers-reduced-motion: reduce) { .tab-content { animation: none; } }
+
+
+/* Safety-style guidance only on a vertically held phone. No image download. */
+.orientation-warning {
+  display: none;
+  width: min(1120px, 100%);
+  align-items: center;
+  gap: 16px;
+  background: #FFF4C9;
+  border: 2px solid #D8A522;
+  color: #3F350F;
+  border-radius: 13px;
+  padding: 13px 18px;
+  margin: 0 0 16px;
+}
+.orientation-sign { display: block; flex: 0 0 62px; }
+.orientation-warning > div { display: flex; flex-direction: column; gap: 5px; }
+.orientation-warning strong { font-size: 24px; font-weight: 850; letter-spacing: .01em; line-height: 1.2; }
+.orientation-warning span { font-size: 12px; font-weight: 600; line-height: 1.5; }
+@media (max-width: 760px) {
+  /* Explicit dimension prevents the video element from collapsing to zero
+     height in certain iOS home-screen web-app grid layouts. */
+  .measuring-workout .camera {
+    display: block;
+    width: 100%;
+    min-height: 245px;
+    aspect-ratio: 4 / 3;
+  }
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  .orientation-warning { display: flex; }
+}
+@media (max-width: 390px) {
+  .orientation-warning { padding: 11px 13px; gap: 12px; }
+  .orientation-sign { width: 52px; height: 52px; flex-basis: 52px; }
+  .orientation-warning strong { font-size: 22px; }
+}
