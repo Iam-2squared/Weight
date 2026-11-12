@@ -145,6 +145,25 @@ export default function App() {
     } catch { /* A cleared local login will be checked again on refresh. */ }
   };
 
+  // iOS home-screen launch can restore an off-screen scroll position.
+  // Start a fresh standalone session at the top so camera/login stay reachable.
+  useEffect(() => {
+    const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    if (!standalone) return;
+
+    const resetScroll = () => window.scrollTo({ left: 0, top: 0, behavior: "auto" });
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) resetScroll();
+    };
+    const frame = window.requestAnimationFrame(resetScroll);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, []);
+
   const start = async (nextFacing: Facing) => {
     const session = ++generation.current;
     stopResources();
