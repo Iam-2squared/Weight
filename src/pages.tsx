@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Icon } from "./icons";
+import { TowerJourney, HEIGHT_LANDMARKS } from "./TowerJourney";
 import {
-  formatDuration, japanDay, monthGrid, personalRanking, streakStats,
+  japanDay, monthGrid, streakStats, trainingTotals,
   summariesByDay, type TrainingSession,
 } from "./training";
 
@@ -74,8 +75,7 @@ export function DailyPage({sessions,onChallenge}: {sessions:TrainingSession[];on
 }
 
 export function ChallengePage({sessions,onStart}: {sessions:TrainingSession[];onStart:()=>void}) {
-  const stats=streakStats(sessions,japanDay(new Date()));
-  const latest=sessions[0];
+  const stats=trainingTotals(sessions);
   return <>
     <PageHeader eyebrow="CHALLENGE" title="チャレンジ" subtitle="自分のペースで、昨日より少し前へ。" />
     <section className="challenge-card">
@@ -86,37 +86,44 @@ export function ChallengePage({sessions,onStart}: {sessions:TrainingSession[];on
       <button type="button" className="challenge-cta" onClick={onStart}>計測する <Icon name="right" size={22}/></button>
     </section>
     <div className="challenge-overview">
-      <div><span>自己ベスト</span><strong>{stats.best}<small>回</small></strong></div>
-      <div><span>前回</span><strong>{latest?.reps??0}<small>回</small></strong></div>
+      <div><span>最高連続</span><strong>{stats.bestStreak}<small>回</small></strong></div>
+      <div><span>総合回数</span><strong>{stats.totalReps.toLocaleString("ja-JP")}<small>回</small></strong></div>
     </div>
     <p className="micro-note">スマホを横向きに置き、全身が映る位置に固定してください。</p>
   </>;
 }
 
 export function RankingPage({sessions,onChallenge}: {sessions:TrainingSession[];onChallenge:()=>void}) {
-  const ranking=personalRanking(sessions);
-  const best=ranking[0]?.reps??0;
+  const [metric,setMetric]=useState<"streak"|"total">("streak");
+  const stats=trainingTotals(sessions);
+  const count=metric==="streak"?stats.bestStreak:stats.totalReps;
+  const noRecords=sessions.length===0;
   return <>
-    <PageHeader eyebrow="PERSONAL BEST" title="ランキング" subtitle="自分の記録を更新しよう" />
-    <section className="ranking-highlight">
-      <span className="stat-label">自己ベスト</span>
-      <strong>{best}<small>回</small></strong>
-      <span className="ranking-source">セッション別・この端末の記録</span>
+    <PageHeader eyebrow="PUSH-UP HEIGHT CHALLENGE" title="ランキング" subtitle="腕立てを積み上げて、月を目指そう" />
+    <div className="ranking-mode" role="tablist" aria-label="ランキングの種類">
+      <button type="button" role="tab" aria-selected={metric==="streak"} className={metric==="streak"?"active":""}
+        onClick={()=>setMetric("streak")}>最高連続</button>
+      <button type="button" role="tab" aria-selected={metric==="total"} className={metric==="total"?"active":""}
+        onClick={()=>setMetric("total")}>総合回数</button>
+    </div>
+    <TowerJourney reps={count} metricName={metric==="streak"?"最高連続":"総合回数"}/>
+    <section className="ranking-milestones" aria-label="高さの目標">
+      <div className="ranking-milestones-head"><h2>目指す高さ</h2><span>1人 = 約0.5 m</span></div>
+      <div className="milestone-grid">
+        {HEIGHT_LANDMARKS.filter(x=>["roof","tokyo","skytree","fuji","space","moon"].includes(x.key))
+          .map(x=><div key={x.key} className={"milestone-chip"+(count*0.5>=x.meters?" reached":"")}>
+            <span className="milestone-symbol" aria-hidden="true">{count*0.5>=x.meters?"✓":"○"}</span>
+            <span className="milestone-name">{x.label}</span>
+            <small>{x.meters>=1000?(x.meters/1000).toLocaleString("ja-JP")+"km":x.meters+"m"}</small>
+          </div>)}
+      </div>
     </section>
-    <section className="rank-list" aria-label="自分の記録ランキング">
-      <div className="rank-list-head"><h2>記録一覧</h2><span>TOP 10</span></div>
-      {ranking.length===0 ? <div className="empty-rank">
-        <Icon name="trophy" size={36}/>
-        <p>まだ記録がありません</p>
-        <button type="button" onClick={onChallenge}>チャレンジする</button>
-      </div> : ranking.map((record,index)=><div className="rank-entry" key={record.id}>
-        <span className={"rank-place"+(index<3?" rank-podium":"")}>{String(index+1).padStart(2,"0")}</span>
-        <div className="rank-details"><strong>{japanDay(record.endedAt).replaceAll("-","/")}</strong>
-          <span>{formatDuration(record.durationSec)}</span></div>
-        <strong className="rank-count">{record.reps}<small> 回</small></strong>
-      </div>)}
-    </section>
-    <p className="micro-note">現在は個人ランキングです。ほかのユーザーとの共有ランキングは未接続です。</p>
+    {noRecords && <button type="button" className="text-link-action" onClick={onChallenge}>
+      最初の1回を計測する <Icon name="right" size={19}/>
+    </button>}
+    {sessions.some(s=>s.bestStreak===undefined) &&
+      <p className="micro-note">旧バージョンで保存した記録は、総合回数に含まれます。連続記録は新しい計測から集計します。</p>}
+    <p className="micro-note">この端末の個人成績です。KGSユーザー間の順位ではありません。</p>
   </>;
 }
 
