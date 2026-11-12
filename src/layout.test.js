@@ -30,7 +30,7 @@ describe("measurement orientation notice", () => {
     expect(app).toContain('className="orientation-warning"');
     expect(app).toContain("<strong>横向き！</strong>");
     expect(app).toContain('viewBox="0 0 72 68"');
-    expect(styles).toContain("#F8CC30");
+    expect(app).toContain("#F8CC30");
     expect(styles).toContain("@media (max-width: 760px) and (orientation: portrait)");
     expect(block(".orientation-warning")).toContain("display: none");
     expect(styles).toContain("min-height: 245px");
