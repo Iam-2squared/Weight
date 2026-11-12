@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import styles from "./styles.css?raw";
+import { readFileSync } from "node:fs";
+
+const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
 
 function block(selector: string): string {
   const start = styles.indexOf(selector + " {");
