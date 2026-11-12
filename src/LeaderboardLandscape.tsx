@@ -40,6 +40,11 @@ function SceneArt({scene}:{scene:Scene}) {
   </g>;
 }
 
+const THEMES: Record<Scene,string> = {
+  gym:"ジム",roof:"屋根を突破",city:"東京の街",skytree:"スカイツリー",
+  fuji:"富士山",clouds:"雲の上",space:"宇宙",moon:"月",
+};
+
 function RankerGraphic({entry,value,maxValue,index}:{entry:RankLane;value:number;maxValue:number;index:number}){
   const journey=journeyAt(value),scene=journey.scene;
   const towerMaxHeight=220;
