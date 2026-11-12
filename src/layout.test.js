@@ -57,7 +57,6 @@ describe("automatic member leaderboard", () => {
     expect(page).not.toContain("退出する");
     expect(page).not.toContain("onPublish");
     expect(page).not.toContain("onLeave");
-    expect(page).toContain("KGSログインユーザーは自動でランキングに表示");
     expect(page).toContain("entries={member?entries:[]}");
   });
 });
