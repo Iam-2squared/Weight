@@ -9,7 +9,8 @@
 - 浅い腕の曲げ伸ばし・見失い・姿勢の崩れによる誤カウントを軽減
 - カメラのリアルタイムプレビュー、骨格表示、肘角度、状態表示
 - 音声カウント、一時停止／再開、カメラ切替、リセット
-- 認証、データベース、有料APIなし
+- KGS 11th（KGS01）の出席番号・4桁PINでログイン可能。ゲストでのカメラ利用も可能
+- Weight独自のデータベース・有料APIなし
 
 ## ローカルで動かす
 
@@ -30,6 +31,16 @@ Node.js 22.12 以降を使用してください。
 - 開発ブランチ `feature/v1-pushup-counter` のプレビューでiPhone Safari／Android Chromeから検証してからmainへマージする。
 - GitHub Pagesは使用しない。Vercelの無料枠・利用規約を確認し、有料プラン・課金機能への移行は明示承認なしに行わない。
 - プレビューURLにVercel Authentication等の保護が掛かる場合は、Vercelにログインするか、期限付きの共有リンクで開く。
+
+## KGS 11th アカウント連携
+
+- 既存のKGS出席番号と4桁PINを利用します。新しいKGSアカウントを作成したり、PINをWeightに保存したりしません。
+- 入力したPINはWeightサーバーからKGSの専用サーバー間APIにのみ送ります。ブラウザへKGS統合秘密鍵・KGSトークンを返しません。
+- Weight側には独立したホスト専用`Secure; HttpOnly; SameSite=Lax` Cookieを設定し、KGS側で失効を検証します。
+- WeightはKGSのメンバーID・表示名だけ表示します。クラスの予定・投稿・写真・成績・ウォレットへのアクセスは実装しません。
+- Vercel環境変数（サーバーのみ）`KGS_WEIGHT_API_ORIGIN`（KGS共有版の固定HTTPS origin）、`KGS_WEIGHT_INTEGRATION_SECRET`（KGS側と共有する**専用ランダム秘密**）、KGS Previewの保護がある場合のみ`KGS_WEIGHT_VERCEL_BYPASS_SECRET`を設定します。3つともブラウザに公開しません。
+- 連携環境変数未設定・KGS障害時はログインを拒否しますが、腕立てカメラをゲストで利用できます。
+- 自動でトレーニング履歴をKGSへ同期しません。
 
 ## 撮影と判定
 
