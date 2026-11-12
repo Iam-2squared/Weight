@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "./icons";
-import { TowerJourney, HEIGHT_LANDMARKS } from "./TowerJourney";
+import { HEIGHT_LANDMARKS } from "./TowerJourney";
+import { LeaderboardLandscape, type RankMetric, type SharedRank } from "./LeaderboardLandscape";
 import {
   japanDay, monthGrid, streakStats, trainingTotals,
   summariesByDay, type TrainingSession,
@@ -93,37 +94,69 @@ export function ChallengePage({sessions,onStart}: {sessions:TrainingSession[];on
   </>;
 }
 
-export function RankingPage({sessions,onChallenge}: {sessions:TrainingSession[];onChallenge:()=>void}) {
-  const [metric,setMetric]=useState<"streak"|"total">("streak");
-  const stats=trainingTotals(sessions);
-  const count=metric==="streak"?stats.bestStreak:stats.totalReps;
-  const noRecords=sessions.length===0;
+export interface RankingProps {
+  sessions: TrainingSession[];
+  member: {id:string;name:string}|null;
+  entries: SharedRank[];
+  optedIn: boolean;
+  loading: boolean;
+  error: string;
+  onPublish: ()=>void;
+  onLeave: ()=>void;
+  onRefresh: ()=>void;
+  onLogin: ()=>void;
+  onChallenge: ()=>void;
+}
+export function RankingPage({
+  sessions,member,entries,optedIn,loading,error,
+  onPublish,onLeave,onRefresh,onLogin,onChallenge
+}:RankingProps){
+  const [metric,setMetric]=useState<RankMetric>("bestStreak");
+  const totals=trainingTotals(sessions);
+  const self=member?{memberId:member.id,name:member.name||"あなた",...totals}:
+    sessions.length?{memberId:"guest",name:"ゲスト",...totals}:null;
   return <>
-    <PageHeader eyebrow="PUSH-UP HEIGHT CHALLENGE" title="ランキング" subtitle="腕立てを積み上げて、月を目指そう" />
+    <PageHeader eyebrow="PUSH-UP HEIGHT RANKING" title="ランキング"
+      subtitle="腕立てを積み上げて、みんなで月を目指そう"/>
     <div className="ranking-mode" role="tablist" aria-label="ランキングの種類">
-      <button type="button" role="tab" aria-selected={metric==="streak"} className={metric==="streak"?"active":""}
-        onClick={()=>setMetric("streak")}>最高連続</button>
-      <button type="button" role="tab" aria-selected={metric==="total"} className={metric==="total"?"active":""}
-        onClick={()=>setMetric("total")}>総合回数</button>
+      <button type="button" role="tab" aria-selected={metric==="bestStreak"}
+        className={metric==="bestStreak"?"active":""} onClick={()=>setMetric("bestStreak")}>最高連続</button>
+      <button type="button" role="tab" aria-selected={metric==="totalReps"}
+        className={metric==="totalReps"?"active":""} onClick={()=>setMetric("totalReps")}>総合回数</button>
     </div>
-    <TowerJourney reps={count} metricName={metric==="streak"?"最高連続":"総合回数"}/>
+    <section className="shared-ranking-bar">
+      <div>
+        <strong>{member?"KGS共有ランキング":"自分の記録"}</strong>
+        <span>{member ? (optedIn?"あなたは参加中": "参加すると自分の名前と記録が表示されます")
+          :"ほかのユーザーを見るにはKGS 11thにログイン"}</span>
+      </div>
+      <div className="shared-ranking-actions">
+        {member ? <>
+          <button type="button" className="ranking-refresh" disabled={loading} onClick={onRefresh}
+            aria-label="ランキングを更新">↻</button>
+          <button type="button" className="ranking-share" disabled={loading}
+            onClick={optedIn?onLeave:onPublish}>{loading?"更新中…":optedIn?"退出する":"参加する"}</button>
+        </> : <button type="button" className="ranking-share" onClick={onLogin}>ログイン</button>}
+      </div>
+    </section>
+    {error&&<p className="ranking-error" role="status">{error}</p>}
+    <LeaderboardLandscape entries={member?entries:[]} metric={metric} self={self} optedIn={optedIn}/>
+    {sessions.length===0&&<button type="button" className="text-link-action"
+      onClick={onChallenge}>腕立てに挑戦する <Icon name="right" size={19}/></button>}
     <section className="ranking-milestones" aria-label="高さの目標">
       <div className="ranking-milestones-head"><h2>目指す高さ</h2><span>1人 = 約0.5 m</span></div>
       <div className="milestone-grid">
         {HEIGHT_LANDMARKS.filter(x=>["roof","tokyo","skytree","fuji","space","moon"].includes(x.key))
-          .map(x=><div key={x.key} className={"milestone-chip"+(count*0.5>=x.meters?" reached":"")}>
-            <span className="milestone-symbol" aria-hidden="true">{count*0.5>=x.meters?"✓":"○"}</span>
+          .map(x=><div key={x.key} className={"milestone-chip"+(totals.totalReps*0.5>=x.meters?" reached":"")}>
+            <span className="milestone-symbol" aria-hidden="true">{totals.totalReps*0.5>=x.meters?"✓":"○"}</span>
             <span className="milestone-name">{x.label}</span>
             <small>{x.meters>=1000?(x.meters/1000).toLocaleString("ja-JP")+"km":x.meters+"m"}</small>
           </div>)}
       </div>
     </section>
-    {noRecords && <button type="button" className="text-link-action" onClick={onChallenge}>
-      最初の1回を計測する <Icon name="right" size={19}/>
-    </button>}
-    {sessions.some(s=>s.bestStreak===undefined) &&
-      <p className="micro-note">旧バージョンで保存した記録は、総合回数に含まれます。連続記録は新しい計測から集計します。</p>}
-    <p className="micro-note">この端末の個人成績です。KGSユーザー間の順位ではありません。</p>
+    {sessions.some(s=>s.bestStreak===undefined)&&
+      <p className="micro-note">旧記録は総合回数に含まれます。最高連続は新しい計測から集計します。</p>}
+    <p className="micro-note">他のユーザーは、共有を許可したKGSメンバーだけ表示されます。高さは演出上の換算値です。</p>
   </>;
 }
 
