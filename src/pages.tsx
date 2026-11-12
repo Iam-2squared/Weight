@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Icon } from "./icons";
-import { HEIGHT_LANDMARKS } from "./TowerJourney";
 import { LeaderboardLandscape, type RankMetric, type SharedRank } from "./LeaderboardLandscape";
 import {
   japanDay, monthGrid, streakStats, trainingTotals,
@@ -106,53 +105,39 @@ export interface RankingProps {
   onChallenge: ()=>void;
 }
 export function RankingPage({
-  sessions,member,entries,optedIn,loading,error,
-  onRefresh,onLogin,onChallenge
+  sessions,member,entries,optedIn,loading,error,onRefresh,onLogin,onChallenge
 }:RankingProps){
   const [metric,setMetric]=useState<RankMetric>("bestStreak");
   const totals=trainingTotals(sessions);
   const self=member?{memberId:member.id,name:member.name||"あなた",...totals}:
     sessions.length?{memberId:"guest",name:"ゲスト",...totals}:null;
-  return <>
-    <PageHeader eyebrow="PUSH-UP HEIGHT RANKING" title="ランキング"
-      subtitle="腕立てを積み上げて、みんなで月を目指そう"/>
-    <div className="ranking-mode" role="tablist" aria-label="ランキングの種類">
-      <button type="button" role="tab" aria-selected={metric==="bestStreak"}
-        className={metric==="bestStreak"?"active":""} onClick={()=>setMetric("bestStreak")}>最高連続</button>
-      <button type="button" role="tab" aria-selected={metric==="totalReps"}
-        className={metric==="totalReps"?"active":""} onClick={()=>setMetric("totalReps")}>総合回数</button>
-    </div>
-    <section className="shared-ranking-bar">
-      <div>
-        <strong>{member?"KGS共有ランキング":"自分の記録"}</strong>
-        <span>{member ? (loading ? "ランキングを同期中…" : "KGSログインユーザーは自動でランキングに表示")
-          :"ほかのユーザーを見るにはKGS 11thにログイン"}</span>
-      </div>
-      <div className="shared-ranking-actions">
-        {member ? <button type="button" className="ranking-refresh" disabled={loading}
-          onClick={onRefresh} aria-label="ランキングを更新">↻</button>
-          : <button type="button" className="ranking-share" onClick={onLogin}>ログイン</button>}
-      </div>
-    </section>
-    {error&&<p className="ranking-error" role="status">{error}</p>}
+  return <section className="ranking-immersive">
     <LeaderboardLandscape entries={member?entries:[]} metric={metric} self={self} optedIn={optedIn}/>
-    {sessions.length===0&&<button type="button" className="text-link-action"
-      onClick={onChallenge}>腕立てに挑戦する <Icon name="right" size={19}/></button>}
-    <section className="ranking-milestones" aria-label="高さの目標">
-      <div className="ranking-milestones-head"><h2>目指す高さ</h2><span>1人 = 約0.5 m</span></div>
-      <div className="milestone-grid">
-        {HEIGHT_LANDMARKS.filter(x=>["roof","tokyo","skytree","fuji","space","moon"].includes(x.key))
-          .map(x=><div key={x.key} className={"milestone-chip"+(totals.totalReps*0.5>=x.meters?" reached":"")}>
-            <span className="milestone-symbol" aria-hidden="true">{totals.totalReps*0.5>=x.meters?"✓":"○"}</span>
-            <span className="milestone-name">{x.label}</span>
-            <small>{x.meters>=1000?(x.meters/1000).toLocaleString("ja-JP")+"km":x.meters+"m"}</small>
-          </div>)}
+    <div className="ranking-floating-ui">
+      <div className="ranking-ui-title">
+        <div><span>PUSH UP / HEIGHT RANKING</span><h1>ランキング</h1></div>
+        <div className="ranking-ui-actions">
+          {member ? <button type="button" className="ranking-reload" disabled={loading}
+              onClick={onRefresh} aria-label="ランキングを更新">↻</button>
+            : <button type="button" className="ranking-login" onClick={onLogin}>ログイン</button>}
+        </div>
       </div>
-    </section>
-    {sessions.some(s=>s.bestStreak===undefined)&&
-      <p className="micro-note">旧記録は総合回数に含まれます。最高連続は新しい計測から集計します。</p>}
-    <p className="micro-note">Push UPにログインしたKGSメンバーの表示名と回数が、自動で共有されます。ほかのKGSメンバー以外には公開しません。高さは演出上の換算値です。</p>
-  </>;
+      <div className="ranking-world-modes" role="tablist" aria-label="ランキングの種類">
+        <button role="tab" type="button" aria-selected={metric==="bestStreak"}
+          className={metric==="bestStreak"?"selected":""}
+          onClick={()=>setMetric("bestStreak")}>最高連続</button>
+        <button role="tab" type="button" aria-selected={metric==="totalReps"}
+          className={metric==="totalReps"?"selected":""}
+          onClick={()=>setMetric("totalReps")}>総合回数</button>
+      </div>
+      {error&&<p role="status" className="ranking-world-error">{error}</p>}
+      <div className="ranking-world-meta" aria-live="polite">
+        {member?(loading?"記録を同期中":entries.length+"人がランキングに表示"):"ゲストの記録"}
+        {sessions.length===0&&<button type="button" onClick={onChallenge}>計測する</button>}
+      </div>
+    </div>
+    <p className="ranking-gesture-hint">↔ ユーザー比較　　↕ ジムから月へ</p>
+  </section>;
 }
 
 interface SettingsProps {
