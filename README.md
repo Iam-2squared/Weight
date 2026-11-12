@@ -38,7 +38,7 @@ Node.js 22.12 以降を使用してください。
 - 入力したPINはWeightサーバーからKGSの専用サーバー間APIにのみ送ります。ブラウザへKGS統合秘密鍵・KGSトークンを返しません。
 - Weight側には独立したホスト専用`Secure; HttpOnly; SameSite=Lax` Cookieを設定し、KGS側で失効を検証します。
 - WeightはKGSのメンバーID・表示名だけ表示します。クラスの予定・投稿・写真・成績・ウォレットへのアクセスは実装しません。
-- Vercel環境変数（サーバーのみ）`KGS_WEIGHT_API_ORIGIN`（KGS共有版の固定HTTPS origin）、`KGS_WEIGHT_INTEGRATION_SECRET`（KGS側と共有する**専用ランダム秘密**）、KGS Previewの保護がある場合のみ`KGS_WEIGHT_VERCEL_BYPASS_SECRET`を設定します。3つともブラウザに公開しません。
+- Vercel環境変数（サーバーのみ）`KGS_WEIGHT_API_ORIGIN`（KGS共有版の固定HTTPS origin）、`KGS_WEIGHT_INTEGRATION_SECRET`（KGS側と共有する**専用ランダム秘密**）を設定します。両方ともブラウザに公開しません。
 - 連携環境変数未設定・KGS障害時はログインを拒否しますが、腕立てカメラをゲストで利用できます。
 - 自動でトレーニング履歴をKGSへ同期しません。
 
