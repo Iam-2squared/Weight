@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { PushupCounter, type CounterSnapshot, type Landmark } from "./counter";
 
@@ -53,6 +53,12 @@ export default function App() {
   const [facing, setFacing] = useState<Facing>("environment");
   const [sound, setSound] = useState(true);
   const [error, setError] = useState("");
+  const [member, setMember] = useState<{id:string;name:string}|null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [attendance, setAttendance] = useState("");
+  const [pin, setPin] = useState("");
   const counter = useRef(new PushupCounter());
   const [reading, setReading] = useState<CounterSnapshot>(() => counter.current.snapshot());
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -87,6 +93,57 @@ export default function App() {
     modelRef.current?.close();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
+
+  // Existing KGS session stays in a host-only HttpOnly cookie, never localStorage.
+  useEffect(() => {
+    let current = true;
+    fetch("/api/kgs", {credentials:"same-origin",cache:"no-store"})
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => { if (current && data?.member) setMember(data.member); })
+      .catch(() => { /* Anonymous camera mode remains available. */ });
+    return () => { current = false; };
+  }, []);
+
+  const signIn = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loginBusy) return;
+    setLoginBusy(true);
+    setLoginError("");
+    try {
+      const response = await fetch("/api/kgs", {
+        method:"POST",
+        credentials:"same-origin",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"login",attendanceNumber:attendance, pin})
+      });
+      setPin("");
+      const result = await response.json();
+      if (!response.ok || !result.member) {
+        setLoginError(result.error || "ログインできませんでした。");
+        return;
+      }
+      setMember(result.member);
+      setLoginOpen(false);
+      setAttendance("");
+    } catch {
+      setPin("");
+      setLoginError("通信に失敗しました。");
+    } finally {
+      setLoginBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    setMember(null);
+    setLoginError("");
+    try {
+      await fetch("/api/kgs", {
+        method:"POST", credentials:"same-origin",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"logout"})
+      });
+    } catch { /* A cleared local login will be checked again on refresh. */ }
+  };
 
   const start = async (nextFacing: Facing) => {
     const session = ++generation.current;
@@ -201,6 +258,13 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="wordmark"><span className="mark">W</span><span>Weight</span></div>
+        {member ? (
+          <button type="button" className="account-button logged-in" onClick={() => void signOut()} title="ログアウト">
+            <span className="member-name">{member.name || "KGSメンバー"}</span><span className="log-out-label">ログアウト</span>
+          </button>
+        ) : (
+          <button type="button" className="account-button" onClick={() => {setLoginError(""); setLoginOpen(true);}}>ログイン</button>
+        )}
       </header>
       <main className="app-main">
         <section className="workout" aria-label="腕立てカウンター">
@@ -321,6 +385,35 @@ export default function App() {
           </div>
         </section>
       </main>
+      {loginOpen && (
+        <div className="login-backdrop" onMouseDown={event => {if (event.target === event.currentTarget && !loginBusy) {setLoginOpen(false);setPin("");}}}>
+          <section className="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+            <div className="login-heading">
+              <div>
+                <span className="login-overline">KGS 11th</span>
+                <h2 id="login-title">ログイン</h2>
+              </div>
+              <button type="button" className="login-close" onClick={() => {setLoginOpen(false);setPin("");}} disabled={loginBusy} aria-label="閉じる">×</button>
+            </div>
+            <p className="login-description">KGS 11thの出席番号とPINを入力</p>
+            <form className="login-form" onSubmit={event => void signIn(event)}>
+              <label htmlFor="kgs-number">出席番号</label>
+              <input id="kgs-number" type="text" inputMode="numeric" autoComplete="off"
+                maxLength={2} required pattern="(?:[1-9]|[1-3][0-9]|40|99)"
+                value={attendance} onChange={event => setAttendance(event.target.value.replace(/\D/g,"").slice(0,2))}
+                placeholder="例：12" />
+              <label htmlFor="kgs-pin">4桁PIN</label>
+              <input id="kgs-pin" type="password" inputMode="numeric" autoComplete="off"
+                maxLength={4} minLength={4} required pattern="[0-9]{4}"
+                value={pin} onChange={event => setPin(event.target.value.replace(/\D/g,"").slice(0,4))}
+                placeholder="••••" />
+              {loginError && <p className="login-error" role="alert">{loginError}</p>}
+              <button type="submit" className="login-submit" disabled={loginBusy}>{loginBusy ? "確認中…" : "ログイン"}</button>
+            </form>
+            <a className="kgs-link" href="https://kgs01-git-codex-kgs01-shared-release-iam-2squareds-projects.vercel.app/" target="_blank" rel="noopener noreferrer">KGS 11thを開く</a>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
