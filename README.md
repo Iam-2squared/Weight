@@ -17,7 +17,7 @@ Node.js 22.12 以降を使用してください。
 
 1. npm install
 2. npm run dev
-3. http://localhost:5173/Weight/ にアクセス
+3. http://localhost:5173/ にアクセス
 
 検証コマンド: npm run typecheck、npm test、npm run build。
 
