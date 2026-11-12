@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { PushupCounter, type CounterSnapshot, type Landmark } from "./counter";
+import { Icon } from "./icons";
+import { DailyPage, ChallengePage, RankingPage, SettingsPage } from "./pages";
+import { loadSessions, saveSession, clearSessions, formatDuration, type TrainingSession } from "./training";
 
 type Status = "idle" | "loading" | "running" | "paused" | "error";
+type Tab = "daily" | "challenge" | "ranking" | "settings";
 type Facing = "environment" | "user";
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
@@ -59,6 +63,16 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [attendance, setAttendance] = useState("");
   const [pin, setPin] = useState("");
+  const [tab, setTab] = useState<Tab>("daily");
+  const [measuring, setMeasuring] = useState(false);
+  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [saveError, setSaveError] = useState("");
+  const startedAt = useRef<number | null>(null);
+  const pausedAt = useRef<number | null>(null);
+  const totalPaused = useRef(0);
+  const finished = useRef(false);
+  const measureAccount = useRef<string | null>(null);
   const counter = useRef(new PushupCounter());
   const [reading, setReading] = useState<CounterSnapshot>(() => counter.current.snapshot());
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -103,6 +117,22 @@ export default function App() {
       .catch(() => { /* Anonymous camera mode remains available. */ });
     return () => { current = false; };
   }, []);
+
+  useEffect(() => {
+    setSessions(loadSessions(member?.id ?? null));
+  }, [member?.id]);
+
+  useEffect(() => {
+    if (!measuring) return;
+    const tick = () => {
+      if (startedAt.current === null) return;
+      const end = pausedAt.current ?? Date.now();
+      setElapsed(Math.max(0, Math.floor((end - startedAt.current - totalPaused.current) / 1000)));
+    };
+    tick();
+    const timer = window.setInterval(tick, 700);
+    return () => window.clearInterval(timer);
+  }, [measuring]);
 
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -206,6 +236,7 @@ export default function App() {
       if (session !== generation.current) { pose.close(); return; }
       modelRef.current = pose;
       lastSpoken.current = counter.current.snapshot().count;
+      if (measuring && startedAt.current === null) startedAt.current = Date.now();
       setStatus("running");
       let lastTime = -1;
       let lastFrame = 0;
@@ -254,7 +285,14 @@ export default function App() {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   };
   const togglePause = () => {
-    paused.current = !paused.current;
+    const wasPaused = paused.current;
+    paused.current = !wasPaused;
+    if (wasPaused && pausedAt.current !== null) {
+      totalPaused.current += Date.now() - pausedAt.current;
+      pausedAt.current = null;
+    } else if (!wasPaused) {
+      pausedAt.current = Date.now();
+    }
     counter.current.resetTracking();
     setReading(counter.current.snapshot());
     setStatus(paused.current ? "paused" : "running");
@@ -268,6 +306,57 @@ export default function App() {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   };
 
+  const enterMeasurement = () => {
+    stop();
+    counter.current.reset();
+    setReading(counter.current.snapshot());
+    startedAt.current = null;
+    pausedAt.current = null;
+    totalPaused.current = 0;
+    measureAccount.current = member?.id ?? null;
+    finished.current = false;
+    setElapsed(0);
+    setSaveError("");
+    setMeasuring(true);
+    window.scrollTo({top:0,left:0,behavior:"instant"});
+  };
+  const finishMeasurement = () => {
+    if (finished.current) return;
+    finished.current = true;
+    const completedReps = counter.current.snapshot().count;
+    const ended = Date.now();
+    const countedSec = startedAt.current===null ? 0
+      : Math.max(0,Math.floor(((pausedAt.current ?? ended)-startedAt.current-totalPaused.current)/1000));
+    if (completedReps > 0) {
+      const record: TrainingSession = {
+        id: crypto.randomUUID(),
+        reps: completedReps,
+        durationSec: countedSec,
+        endedAt: new Date(ended).toISOString(),
+      };
+      try {
+        const saved = saveSession(measureAccount.current,record);
+        if (measureAccount.current === (member?.id ?? null)) setSessions(saved);
+      } catch {
+        setSaveError("保存できませんでした。端末の保存容量を確認してください。");
+      }
+    }
+    stop();
+    setMeasuring(false);
+    setTab("daily");
+    window.scrollTo({top:0,left:0,behavior:"instant"});
+  };
+  const setSoundPreference = () => setSound(value => !value);
+  const clearHistory = () => {
+    if (!window.confirm("この端末のトレーニング記録をすべて削除しますか？")) return;
+    try {
+      clearSessions(member?.id ?? null);
+      setSessions([]);
+      setSaveError("");
+    } catch {
+      setSaveError("記録を削除できませんでした。");
+    }
+  };
   const active = status === "running" || status === "paused";
   const busy = status === "loading";
   const cameraMessage = status === "error" ? error
@@ -277,162 +366,113 @@ export default function App() {
     : null;
 
   return (
-    <div className="app-shell">
+    <div className={"app-shell" + (measuring ? " is-measuring" : "")}>
       <header className="app-header">
-        <div className="wordmark"><span className="mark">W</span><span>Weight</span></div>
-        {member ? (
-          <button type="button" className="account-button logged-in" onClick={() => void signOut()} title="ログアウト">
-            <span className="member-name">{member.name || "KGSメンバー"}</span><span className="log-out-label">ログアウト</span>
-          </button>
+        {measuring ? (
+          <>
+            <button type="button" className="measure-back" onClick={finishMeasurement} aria-label="計測を終了して戻る">
+              <Icon name="back" size={22}/> 戻る
+            </button>
+            <span className="measure-header-title">腕立て伏せ</span>
+            <span className="measure-timer">{formatDuration(elapsed)}</span>
+          </>
         ) : (
-          <button type="button" className="account-button" onClick={() => {setLoginError(""); setLoginOpen(true);}}>ログイン</button>
+          <>
+            <div className="wordmark"><span className="mark">W</span><span>Weight</span></div>
+            {member && <span className="header-member">{member.name}</span>}
+          </>
         )}
       </header>
-      <main className="app-main">
-        <section className="workout" aria-label="腕立てカウンター">
-          <div className="camera">
-            <video
-              ref={videoRef}
-              muted
-              playsInline
-              autoPlay
-              className={facing === "user" ? "mirrored" : ""}
-              aria-label="カメラ映像"
-            />
-            <canvas
-              ref={canvasRef}
-              className={facing === "user" ? "mirrored" : ""}
-              aria-hidden="true"
-            />
 
-            <div className="camera-top">
-              <span className="camera-indicator">
-                <span className={status === "running" ? "live-dot" : "idle-dot"} />
-                {status === "running" ? "LIVE" : status === "paused" ? "PAUSE" : "CAMERA"}
-              </span>
-              {active && (
-                <button
-                  type="button"
-                  className="camera-flip"
-                  onClick={() => void start(facing === "environment" ? "user" : "environment")}
-                  title="カメラ切替"
-                  aria-label="カメラ切替"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="m8 5 1.6-2h4.8L16 5h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3Z"/>
-                    <path d="m15.5 10-2.2-2.1V10H9a3 3 0 0 0-2.6 1.5"/>
-                    <path d="m8.5 14 2.2 2.1V14H15a3 3 0 0 0 2.6-1.5"/>
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {!active && (
-              <div className="camera-empty">
-                <svg className="camera-symbol" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 18h8l5-6h20l5 6h8v32H9z"/>
-                  <circle cx="32" cy="33" r="11"/>
-                </svg>
-                <span>{status === "loading" ? "準備中…" : "カメラ待機"}</span>
+      {measuring ? (
+        <main className="app-main measure-main">
+          <div className="measure-intro">
+            <span className="section-eyebrow">LIVE COUNTER</span>
+            <h1>腕立て伏せ</h1>
+          </div>
+          <section className="workout measuring-workout" aria-label="腕立て伏せ計測">
+            <div className="camera">
+              <video ref={videoRef} muted playsInline autoPlay className={facing==="user"?"mirrored":""} aria-label="カメラ映像"/>
+              <canvas ref={canvasRef} className={facing==="user"?"mirrored":""} aria-hidden="true"/>
+              <div className="camera-top">
+                <span className="camera-indicator"><span className={status==="running"?"live-dot":"idle-dot"}/>
+                  {status==="running"?"LIVE":status==="paused"?"PAUSE":"CAMERA"}</span>
+                {active && <button type="button" className="camera-flip" onClick={()=>void start(facing==="environment"?"user":"environment")} aria-label="カメラ切替">
+                  <Icon name="flip" size={22}/>
+                </button>}
               </div>
-            )}
-            {cameraMessage && (
-              <div className={"camera-message" + (status === "error" ? " is-error" : "")} role="status" aria-live="polite">
-                {cameraMessage}
+              {!active && <div className="camera-empty"><Icon name="challenge" size={48}/><span>{busy?"準備中…":"カメラ待機"}</span></div>}
+              {cameraMessage && <div className={"camera-message"+(status==="error"?" is-error":"")} role="status" aria-live="polite">{cameraMessage}</div>}
+            </div>
+            <div className="counter-panel">
+              <div className="count-display">
+                <span className="count-label">回数</span>
+                <div className="count" aria-live="polite" aria-atomic="true">{reading.count}</div>
               </div>
-            )}
-          </div>
-
-          <div className="counter-panel">
-            <div className="count-display">
-              <span className="count-label">腕立て伏せ <span className="count-label-unit">/ 回数</span></span>
-              <div className="count" aria-live="polite" aria-atomic="true">{reading.count}</div>
+              <div className="controls">
+                {!active
+                  ? <button type="button" className="main-action" disabled={busy} onClick={()=>void start(facing)}>{busy?"準備中…":"開始"}</button>
+                  : <button type="button" className="main-action" onClick={togglePause}>{status==="paused"?"再開":"一時停止"}</button>}
+                <button type="button" className="icon-action" onClick={reset} aria-label="回数をリセット"><Icon name="reset" size={23}/></button>
+                <button type="button" className="icon-action" onClick={setSoundPreference} aria-label={sound?"音声オフ":"音声オン"} aria-pressed={sound}><Icon name={sound?"speaker":"mute"} size={23}/></button>
+              </div>
+              <button type="button" className="finish-action" onClick={finishMeasurement}>終了して保存</button>
             </div>
+          </section>
+          <p className="measure-hint">カメラを横向きに固定して全身を映してください</p>
+        </main>
+      ) : (
+        <main className="app-main tabs-main">
+          <div className="tab-content" key={tab}>
+            {tab==="daily" && <DailyPage sessions={sessions} onChallenge={()=>setTab("challenge")}/>}
+            {tab==="challenge" && <ChallengePage sessions={sessions} onStart={enterMeasurement}/>}
+            {tab==="ranking" && <RankingPage sessions={sessions} onChallenge={()=>setTab("challenge")}/>}
+            {tab==="settings" && <SettingsPage member={member} sound={sound} onSoundChange={setSoundPreference}
+              onLogin={()=>{setLoginError("");setLoginOpen(true);}} onLogout={()=>void signOut()}
+              onClear={clearHistory} sessionCount={sessions.length}/>}
+          </div>
+          {saveError && <p className="save-error" role="alert">{saveError}</p>}
+        </main>
+      )}
 
-            <div className="controls">
-              {!active ? (
-                <button
-                  type="button"
-                  className="main-action"
-                  disabled={busy}
-                  onClick={() => void start(facing)}
-                >
-                  {busy ? "準備中…" : "開始"}
-                </button>
-              ) : (
-                <button type="button" className="main-action" onClick={togglePause}>
-                  {status === "paused" ? "再開" : "一時停止"}
-                </button>
-              )}
-              <button type="button" className="icon-action" onClick={reset} aria-label="リセット" title="リセット">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 10a9 9 0 1 1 2.7 7M3 4v6h6"/>
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="icon-action"
-                onClick={() => setSound(v => !v)}
-                aria-label={sound ? "音声をオフ" : "音声をオン"}
-                aria-pressed={sound}
-                title={sound ? "音声オン" : "音声オフ"}
-              >
-                {sound ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
-                    <path d="M15 9a5 5 0 0 1 0 6M18 6a9 9 0 0 1 0 12"/>
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
-                    <path d="m16 9 5 6m0-6-5 6"/>
-                  </svg>
-                )}
-              </button>
-              {active && (
-                <button type="button" className="icon-action" onClick={stop} aria-label="カメラ停止" title="カメラ停止">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="6.5" y="6.5" width="11" height="11" rx="1"/>
-                  </svg>
-                </button>
-              )}
-            </div>
+      {!measuring && (
+        <nav className="bottom-nav" aria-label="主要メニュー">
+          <div className="bottom-nav-inner">
+            <button type="button" className={"nav-item"+(tab==="daily"?" selected":"")} onClick={()=>setTab("daily")}
+              aria-label="デイリー" aria-current={tab==="daily"?"page":undefined} title="デイリー"><Icon name="calendar" size={27}/></button>
+            <button type="button" className={"nav-item"+(tab==="challenge"?" selected":"")} onClick={()=>setTab("challenge")}
+              aria-label="チャレンジ" aria-current={tab==="challenge"?"page":undefined} title="チャレンジ"><Icon name="challenge" size={27}/></button>
+            <button type="button" className={"nav-item"+(tab==="ranking"?" selected":"")} onClick={()=>setTab("ranking")}
+              aria-label="ランキング" aria-current={tab==="ranking"?"page":undefined} title="ランキング"><Icon name="trophy" size={27}/></button>
+            <button type="button" className={"nav-item"+(tab==="settings"?" selected":"")} onClick={()=>setTab("settings")}
+              aria-label="設定" aria-current={tab==="settings"?"page":undefined} title="設定"><Icon name="settings" size={27}/></button>
           </div>
-        </section>
-        <section className="quick-guide" aria-label="使い方">
-          <span className="quick-guide-title">使い方</span>
-          <div className="quick-guide-steps">
-            <p><span>01</span>スマホを横向きに置き、全身を映す</p>
-            <p><span>02</span>腕を下げて戻すと1回カウント</p>
-          </div>
-        </section>
-      </main>
-      {loginOpen && (
-        <div className="login-backdrop" onMouseDown={event => {if (event.target === event.currentTarget && !loginBusy) {setLoginOpen(false);setPin("");}}}>
+        </nav>
+      )}
+
+      {loginOpen && !measuring && (
+        <div className="login-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!loginBusy){setLoginOpen(false);setPin("");}}}>
           <section className="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
             <div className="login-heading">
-              <div>
-                <span className="login-overline">KGS 11th</span>
-                <h2 id="login-title">ログイン</h2>
-              </div>
-              <button type="button" className="login-close" onClick={() => {setLoginOpen(false);setPin("");}} disabled={loginBusy} aria-label="閉じる">×</button>
+              <div><span className="login-overline">KGS 11th</span><h2 id="login-title">ログイン</h2></div>
+              <button type="button" className="login-close" onClick={()=>{setLoginOpen(false);setPin("");}} disabled={loginBusy} aria-label="閉じる">×</button>
             </div>
             <p className="login-description">KGS 11thの出席番号とPINを入力</p>
-            <form className="login-form" onSubmit={event => void signIn(event)}>
+            <form className="login-form" onSubmit={event=>void signIn(event)}>
               <label htmlFor="kgs-number">出席番号</label>
-              <input id="kgs-number" type="text" inputMode="numeric" autoComplete="off"
-                maxLength={2} required pattern="(?:[1-9]|[1-3][0-9]|40|99)"
-                value={attendance} onChange={event => setAttendance(event.target.value.replace(/\D/g,"").slice(0,2))}
-                placeholder="例：12" />
+              <input id="kgs-number" type="text" inputMode="numeric" autoComplete="off" maxLength={2}
+                required pattern="(?:[1-9]|[1-3][0-9]|40|99)"
+                value={attendance} onChange={event=>setAttendance(event.target.value.replace(/\D/g,"").slice(0,2))}
+                placeholder="例：12"/>
               <label htmlFor="kgs-pin">4桁PIN</label>
-              <input id="kgs-pin" type="password" inputMode="numeric" autoComplete="off"
-                maxLength={4} minLength={4} required pattern="[0-9]{4}"
-                value={pin} onChange={event => setPin(event.target.value.replace(/\D/g,"").slice(0,4))}
-                placeholder="••••" />
+              <input id="kgs-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} minLength={4}
+                required pattern="[0-9]{4}" value={pin} onChange={event=>setPin(event.target.value.replace(/\D/g,"").slice(0,4))}
+                placeholder="••••"/>
               {loginError && <p className="login-error" role="alert">{loginError}</p>}
-              <button type="submit" className="login-submit" disabled={loginBusy}>{loginBusy ? "確認中…" : "ログイン"}</button>
+              <button type="submit" className="login-submit" disabled={loginBusy}>{loginBusy?"確認中…":"ログイン"}</button>
             </form>
-            <a className="kgs-link" href="https://kgs01-git-codex-kgs01-shared-release-iam-2squareds-projects.vercel.app/" target="_blank" rel="noopener noreferrer">KGS 11thを開く</a>
+            <a className="kgs-link" href="https://kgs01-git-codex-kgs01-shared-release-iam-2squareds-projects.vercel.app/"
+              target="_blank" rel="noopener noreferrer">KGS 11thを開く</a>
           </section>
         </div>
       )}
