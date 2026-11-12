@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     const settings = config();
     if (req.method === "GET") {
       const token = cookies(req)[SESSION];
-      if (!TOKEN.test(token || "")) return json(res, 401, {member:null});
+      if (!TOKEN.test(token || "")) return json(res, 200, {member:null});
       const result = await callKgs("verify", {token}, settings);
       if (result.status !== 200) {
         cookie(res, SESSION, "", 0);
