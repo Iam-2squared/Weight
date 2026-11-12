@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   japanDay, shiftDay, monthGrid, sanitizeSessions, summariesByDay,
   streakStats, personalRanking, formatDuration, loadSessions,
-  saveSession, clearSessions, type TrainingSession,
+  saveSession, clearSessions, trainingTotals, type TrainingSession,
 } from "./training";
 
 const rec = (id: string, endedAt: string, reps = 10): TrainingSession => ({
@@ -77,5 +77,27 @@ describe("on-device record storage", () => {
   it("formats minutes and seconds without fake precision", () => {
     expect(formatDuration(66)).toBe("01:06");
     expect(formatDuration(0)).toBe("00:00");
+  });
+});
+
+describe("best-streak session migration and aggregate metrics", () => {
+  it("keeps all old repetitions but never invents an old consecutive count", () => {
+    const old = rec("legacy", "2026-11-09T16:00:00.000Z", 27);
+    const newRun = {...rec("new", "2026-11-10T16:00:00.000Z", 16), bestStreak: 9};
+    const parsed = sanitizeSessions([old,newRun]);
+    expect(parsed[1].bestStreak).toBeUndefined();
+    expect(trainingTotals(parsed)).toEqual({totalReps:43,bestStreak:9,knownStreakSessions:1});
+  });
+  it("rejects best streak greater than total or zero for a completed workout", () => {
+    const raw = rec("good", "2026-11-11T16:00:00.000Z", 10);
+    expect(sanitizeSessions([{...raw,bestStreak:11}])).toEqual([]);
+    expect(sanitizeSessions([{...raw,bestStreak:0}])).toEqual([]);
+    expect(sanitizeSessions([{...raw,bestStreak:5}])[0].bestStreak).toBe(5);
+  });
+  it("round-trips bestStreak on device for a signed-in member", () => {
+    const userId="123e4567-e89b-12d3-a456-426614174000";
+    const session={...rec("sample", "2026-11-12T16:00:00.000Z",20),bestStreak:7};
+    saveSession(userId,session);
+    expect(loadSessions(userId)[0]).toEqual(session);
   });
 });
