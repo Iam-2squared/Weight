@@ -1,6 +1,7 @@
 export interface Landmark {
   x: number;
   y: number;
+  z?: number;
   visibility?: number;
   presence?: number;
 }
@@ -19,80 +20,96 @@ export interface CounterSnapshot {
   message: string;
 }
 
-const JOINTS = {
-  left: [11, 13, 15, 23, 27],
-  right: [12, 14, 16, 24, 28],
-} as const;
+type Point = { x: number; y: number };
+interface FrontPose {
+  height: number;
+  leftHeight: number;
+  rightHeight: number;
+  angle: number;
+  extension: number;
+  shoulderWidth: number;
+  shoulder: Point;
+  leftShoulder: Point;
+  rightShoulder: Point;
+  leftWrist: Point;
+  rightWrist: Point;
+  down: Point;
+}
 
-const MIN_VISIBILITY = 0.52;
-// Side-on camera projection does not always reach a 155°/105° elbow range.
-// Hysteresis plus a real excursion in both directions rejects small jitters.
-const TOP_ANGLE = 140;
-const DOWN_START_ANGLE = 130;
-const BOTTOM_ANGLE = 125;
-const MIN_EXCURSION = 20;
-const TOP_FRAMES = 2;
-const BOTTOM_FRAMES = 2;
+const MIN_VISIBILITY = 0.45;
 const LOST_RESET_MS = 1500;
-const MIN_BOTTOM_MS = 250;
+const STABLE_FRAMES = 2;
+const MIN_DROP = 0.18;
+const MIN_SHOULDER_DROP = 0.07;
+const MIN_BOTTOM_MS = 180;
 const COUNT_COOLDOWN_MS = 550;
+const FRONT_JOINTS = [11, 12, 13, 14, 15, 16] as const;
 
-export function jointAngle(
-  first: Landmark,
-  vertex: Landmark,
-  last: Landmark,
-  frameWidth: number,
-  frameHeight: number,
-): number {
+export function jointAngle(first: Landmark, vertex: Landmark, last: Landmark,
+  frameWidth: number, frameHeight: number): number {
   const ax = (first.x - vertex.x) * frameWidth;
   const ay = (first.y - vertex.y) * frameHeight;
   const bx = (last.x - vertex.x) * frameWidth;
   const by = (last.y - vertex.y) * frameHeight;
   const denominator = Math.hypot(ax, ay) * Math.hypot(bx, by);
   if (denominator < 1e-6) return Number.NaN;
-  const cosine = Math.max(-1, Math.min(1, (ax * bx + ay * by) / denominator));
-  return (Math.acos(cosine) * 180) / Math.PI;
+  return Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / denominator))) * 180 / Math.PI;
 }
 
 export function isVisibleLandmark(point: Landmark | undefined): point is Landmark {
-  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
-  return (point.visibility ?? 1) >= MIN_VISIBILITY && (point.presence ?? 1) >= MIN_VISIBILITY;
+  return !!point && Number.isFinite(point.x) && Number.isFinite(point.y) &&
+    (point.visibility ?? 1) >= MIN_VISIBILITY && (point.presence ?? 1) >= MIN_VISIBILITY;
 }
 
-function selectSide(points: readonly Landmark[], activeSide: Side | null): { side: Side; joints: Landmark[] } | null {
-  const candidates = (["left", "right"] as const).flatMap((side) => {
-    const joints = JOINTS[side].map((index) => points[index]);
-    if (!joints.every(isVisibleLandmark)) return [];
-    const score = joints.reduce((sum, point) => sum + (point.visibility ?? 1), 0);
-    return [{ side, joints, score }];
-  });
-  // The far-side arm/leg may be hidden in a lateral view. Keep following the
-  // same visible side instead of restarting a rep when confidence scores swap.
-  const active = candidates.find((candidate) => candidate.side === activeSide);
-  if (active) return active;
-  candidates.sort((a, b) => b.score - a.score);
-  return candidates[0] ?? null;
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+const midpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const displacement = (from: Point, to: Point, down: Point) =>
+  (to.x - from.x) * down.x + (to.y - from.y) * down.y;
+
+/** All measurements use the upper body. Hips, knees, and feet may be cropped. */
+function measureFront(points: readonly Landmark[], width: number, height: number): FrontPose | null {
+  if (!FRONT_JOINTS.every(index => isVisibleLandmark(points[index]))) return null;
+  const pixel = (index: number): Point => ({ x: points[index].x * width, y: points[index].y * height });
+  const ls = pixel(11), rs = pixel(12), le = pixel(13), re = pixel(14);
+  const lw = pixel(15), rw = pixel(16);
+  const shoulderWidth = distance(ls, rs);
+  if (shoulderWidth < Math.max(8, width * 0.025)) return null;
+  const arms = [[ls, le, lw], [rs, re, rw]];
+  const lengths = arms.map(([s, e, w]) => distance(s, e) + distance(e, w));
+  if (lengths.some(length => length < shoulderWidth * 0.15)) return null;
+  const a = lw.x < rw.x ? lw : rw, b = lw.x < rw.x ? rw : lw;
+  const handSpan = distance(a, b);
+  if (handSpan < shoulderWidth * 0.25) return null;
+  const down = { x: -(b.y - a.y) / handSpan, y: (b.x - a.x) / handSpan };
+  const heightAboveHands = (point: Point) => displacement(point, a, down) / shoulderWidth;
+  const leftHeight = heightAboveHands(ls), rightHeight = heightAboveHands(rs);
+  const angle = (jointAngle(points[11], points[13], points[15], width, height) +
+    jointAngle(points[12], points[14], points[16], width, height)) / 2;
+  if (!Number.isFinite(angle) || (leftHeight + rightHeight) / 2 < -0.25) return null;
+  return {
+    height: (leftHeight + rightHeight) / 2, leftHeight, rightHeight, angle,
+    extension: (distance(ls, lw) / lengths[0] + distance(rs, rw) / lengths[1]) / 2,
+    shoulderWidth, shoulder: midpoint(ls, rs), leftShoulder: ls, rightShoulder: rs,
+    leftWrist: lw, rightWrist: rw, down,
+  };
 }
 
-/**
- * Only one lateral shoulder/elbow/wrist/hip/ankle chain needs to be visible.
- * The opposite arm and leg may be occluded; joints from different sides are
- * never combined, and a real tracking-side change starts a new rep.
- * This prevents counting arm waves made while standing, but does not
- * measure true chest-to-floor distance or certify exercise technique.
- */
+/** A front-view down/up movement is calibrated to the person's shoulder width
+ * and initial hand position, rather than a side-view elbow angle or full-body
+ * pose. It estimates repetitions; it does not certify exercise technique. */
 export class PushupCounter {
   private reps = 0;
   private stage: Stage = "seeking";
-  private activeSide: Side | null = null;
-  private smoothedElbow: number | null = null;
+  private smoothed: FrontPose | null = null;
+  private top: FrontPose | null = null;
+  private bottom: FrontPose | null = null;
   private topFrames = 0;
   private bottomFrames = 0;
+  private risingFrames = 0;
   private bottomAt = 0;
-  private peakElbow: number | null = null;
-  private lowestElbow: number | null = null;
-  private lastCountAt = -Infinity;
   private lastTrackedAt = -Infinity;
+  private lastCountAt = -Infinity;
+  private referenceWidth: number | null = null;
 
   reset(): void {
     this.reps = 0;
@@ -102,160 +119,144 @@ export class PushupCounter {
 
   resetTracking(): void {
     this.stage = "seeking";
-    this.activeSide = null;
-    this.smoothedElbow = null;
-    this.topFrames = 0;
-    this.bottomFrames = 0;
+    this.smoothed = this.top = this.bottom = null;
+    this.topFrames = this.bottomFrames = 0;
+    this.risingFrames = 0;
     this.bottomAt = 0;
-    this.peakElbow = null;
-    this.lowestElbow = null;
     this.lastTrackedAt = -Infinity;
+    this.referenceWidth = null;
   }
 
   snapshot(): CounterSnapshot {
-    return {
-      count: this.reps,
-      stage: this.stage,
-      side: this.activeSide,
-      elbowAngle: this.smoothedElbow === null ? null : Math.round(this.smoothedElbow),
-      bodyAngle: null,
-      tracked: false,
-      validForm: false,
-      message: "横から片側の肩・肘・手首・腰・足首を映してください",
-    };
+    return this.result(false, "正面から両肩・肘・手首を映してください");
   }
 
-  private markMissing(timestamp: number, message: string): CounterSnapshot {
-    this.topFrames = 0;
-    this.bottomFrames = 0;
+  private result(tracked: boolean, message: string): CounterSnapshot {
+    return { count: this.reps, stage: this.stage, side: null,
+      elbowAngle: this.smoothed ? Math.round(this.smoothed.angle) : null,
+      bodyAngle: null, tracked, validForm: tracked, message };
+  }
+
+  private missing(timestamp: number, message = "正面から両肩・肘・手首を映してください"): CounterSnapshot {
+    this.topFrames = this.bottomFrames = 0;
+    this.risingFrames = 0;
     if (timestamp - this.lastTrackedAt > LOST_RESET_MS) this.resetTracking();
-    return { ...this.snapshot(), message };
+    return this.result(false, message);
   }
 
-  update(
-    points: readonly Landmark[] | null | undefined,
-    timestamp: number,
-    frameWidth: number,
-    frameHeight: number,
-  ): CounterSnapshot {
-    if (!points || frameWidth <= 0 || frameHeight <= 0) {
-      return this.markMissing(timestamp, "片側の肩から足首が映る位置にカメラを調整してください");
-    }
-    // Reacquire a stable top pose after a long video/background gap.
-    if (this.lastTrackedAt !== -Infinity && timestamp - this.lastTrackedAt > LOST_RESET_MS) {
-      this.resetTracking();
-    }
-    const selection = selectSide(points, this.activeSide);
-    if (!selection) {
-      return this.markMissing(timestamp, "片側の肩・肘・手首・腰・足首を画面に入れてください");
-    }
-    const { side, joints } = selection;
-    const [shoulder, elbow, wrist, hip, ankle] = joints;
-    if (this.activeSide && this.activeSide !== side) this.resetTracking();
-    this.activeSide = side;
+  private handsStayed(pose: FrontPose, reference: FrontPose): boolean {
+    // A loose body-scaled allowance tolerates model jitter and perspective.
+    // Large hand movement is not a push-up descent.
+    return distance(pose.leftWrist, reference.leftWrist) <= reference.shoulderWidth * 0.4 &&
+      distance(pose.rightWrist, reference.rightWrist) <= reference.shoulderWidth * 0.4;
+  }
 
-    const rawElbow = jointAngle(shoulder, elbow, wrist, frameWidth, frameHeight);
-    const bodyAngle = jointAngle(shoulder, hip, ankle, frameWidth, frameHeight);
-    if (!Number.isFinite(rawElbow) || !Number.isFinite(bodyAngle)) {
-      return this.markMissing(timestamp, "関節がうまく認識できません");
+  private lowered(pose: FrontPose, top: FrontPose): boolean {
+    const drop = top.height - pose.height;
+    const bothShoulders = top.leftHeight - pose.leftHeight >= 0.08 &&
+      top.rightHeight - pose.rightHeight >= 0.08 &&
+      displacement(top.leftShoulder, pose.leftShoulder, top.down) >= top.shoulderWidth * 0.06 &&
+      displacement(top.rightShoulder, pose.rightShoulder, top.down) >= top.shoulderWidth * 0.06;
+    const realShoulderMotion = displacement(top.shoulder, pose.shoulder, top.down) >=
+      top.shoulderWidth * MIN_SHOULDER_DROP;
+    // Elbow bending corroborates a normal descent. A larger shoulder descent
+    // remains usable when front-view projection hides the elbow-angle change.
+    const bending = top.angle - pose.angle >= 8 || top.extension - pose.extension >= 0.035 || drop >= 0.28;
+    return drop >= MIN_DROP && bothShoulders && realShoulderMotion && bending && this.handsStayed(pose, top);
+  }
+
+  update(points: readonly Landmark[] | null | undefined, timestamp: number,
+    frameWidth: number, frameHeight: number): CounterSnapshot {
+    if (!points || !Number.isFinite(timestamp) || !Number.isFinite(frameWidth) ||
+      !Number.isFinite(frameHeight) || frameWidth <= 0 || frameHeight <= 0) return this.missing(timestamp);
+    if (this.lastTrackedAt !== -Infinity && timestamp - this.lastTrackedAt > LOST_RESET_MS) this.resetTracking();
+    const raw = measureFront(points, frameWidth, frameHeight);
+    if (!raw) return this.missing(timestamp);
+    if (this.stage === "seeking") {
+      // The detector's first acquired hand position can be an outlier. Use
+      // the latest calibration frame, not a permanent first-frame anchor.
+      this.referenceWidth = raw.shoulderWidth;
+      this.smoothed = this.top = raw;
+      this.lastTrackedAt = timestamp;
+      if (++this.topFrames >= STABLE_FRAMES) this.stage = "ready";
+      return this.result(true, this.stage === "ready" ? "準備OK。胸をゆっくり下ろそう" : "腕を伸ばして構えてください");
+    }
+    // Hold one body scale for the session. Per-frame shoulder-span estimates
+    // change with foreshortening and would otherwise manufacture moving peaks.
+    this.referenceWidth ??= raw.shoulderWidth;
+    const scale = raw.shoulderWidth / this.referenceWidth;
+    raw.height *= scale;
+    raw.leftHeight *= scale;
+    raw.rightHeight *= scale;
+    raw.shoulderWidth = this.referenceWidth;
+    if (this.top && !this.handsStayed(raw, this.top)) {
+      // A single occluded/mislocated hand must not erase a valid half-rep.
+      // Do not use that frame; a sustained move still expires tracking.
+      return this.missing(timestamp, "両手を床につけて構えてください");
     }
     this.lastTrackedAt = timestamp;
-    this.smoothedElbow =
-      this.smoothedElbow === null ? rawElbow : this.smoothedElbow * 0.4 + rawElbow * 0.6;
-    const angle = this.smoothedElbow;
+    const previous = this.smoothed;
+    const blend = (current: number, before: number) => current * 0.6 + before * 0.4;
+    const pose = this.smoothed = previous ? { ...raw,
+      height: blend(raw.height, previous.height), leftHeight: blend(raw.leftHeight, previous.leftHeight),
+      rightHeight: blend(raw.rightHeight, previous.rightHeight), angle: blend(raw.angle, previous.angle),
+      extension: blend(raw.extension, previous.extension) } : raw;
 
-    // Check the visible side's body line; the opposite side is not required.
-    const horizontalDistance = Math.abs((ankle.x - shoulder.x) * frameWidth);
-    const verticalDistance = Math.abs((ankle.y - shoulder.y) * frameHeight);
-    const isHorizontal = horizontalDistance >= verticalDistance * 1.25;
-    const straightBody = bodyAngle >= 145;
-    const validForm = isHorizontal && straightBody;
-
-    if (!validForm) {
-      // Invalid posture must never complete an earlier half-rep.
-      this.stage = "seeking";
-      this.topFrames = 0;
-      this.bottomFrames = 0;
-      this.peakElbow = null;
-      this.lowestElbow = null;
-      return {
-        ...this.snapshot(),
-        elbowAngle: Math.round(angle),
-        bodyAngle: Math.round(bodyAngle),
-        tracked: true,
-        validForm: false,
-        message: !isHorizontal
-          ? "カメラを横向きにし、片側の肩から足首を水平に映してください"
-          : "腰を上げ下げせず、体をまっすぐに保ってください",
-      };
-    }
-
-    // Process the first descending frame immediately, so a normal-speed rep
-    // does not lose an extra frame just changing from ready to lowering.
+    const top = this.top!;
     if (this.stage === "ready") {
-      this.peakElbow = Math.max(this.peakElbow ?? angle, angle);
-      if (angle < DOWN_START_ANGLE) {
-        this.stage = "lowering";
+      if (pose.height > top.height) this.top = pose;
+      if (top.height - pose.height >= 0.07) this.stage = "lowering";
+    }
+    if (this.stage === "lowering") {
+      this.bottomFrames = this.lowered(pose, top) ? this.bottomFrames + 1 : 0;
+      if (this.bottomFrames >= STABLE_FRAMES) {
+        this.stage = "bottom";
+        this.bottom = pose;
+        this.bottomAt = timestamp;
         this.topFrames = 0;
+        this.risingFrames = 0;
+      } else if (pose.height >= top.height - 0.04) {
+        this.stage = "ready";
+        this.top = pose;
         this.bottomFrames = 0;
       }
+      return this.result(true, this.stage === "bottom" ? "そのまま腕を伸ばして戻そう" : "胸をゆっくり下ろそう");
     }
-
-    let message = "肘を伸ばし、スタート姿勢を取ってください";
-    switch (this.stage) {
-      case "seeking":
-        this.topFrames = angle >= TOP_ANGLE ? this.topFrames + 1 : 0;
-        this.peakElbow = this.topFrames ? Math.max(this.peakElbow ?? angle, angle) : null;
-        if (this.topFrames >= TOP_FRAMES) this.stage = "ready";
-        message = this.stage === "ready" ? "準備OK。ゆっくり下ろそう" : message;
-        break;
-      case "ready":
-        message = "肘を曲げて下ろそう";
-        break;
-      case "lowering":
-        this.bottomFrames = angle <= BOTTOM_ANGLE && this.peakElbow !== null &&
-          this.peakElbow - angle >= MIN_EXCURSION ? this.bottomFrames + 1 : 0;
-        if (this.bottomFrames >= BOTTOM_FRAMES) {
-          this.stage = "bottom";
-          this.bottomAt = timestamp;
-          this.lowestElbow = angle;
-        } else if (angle >= TOP_ANGLE) {
-          this.stage = "ready"; // Shallow dip is not a rep.
-          this.peakElbow = angle;
-        }
-        message = this.stage === "bottom" ? "そのまま腕を伸ばそう" : "胸をゆっくり下ろそう";
-        break;
-      case "bottom":
-        this.lowestElbow = Math.min(this.lowestElbow ?? angle, angle);
-        this.topFrames = angle >= TOP_ANGLE && angle - this.lowestElbow >= MIN_EXCURSION
-          ? this.topFrames + 1 : 0;
-        if (
-          this.topFrames >= TOP_FRAMES &&
-          timestamp - this.bottomAt >= MIN_BOTTOM_MS &&
-          timestamp - this.lastCountAt >= COUNT_COOLDOWN_MS
-        ) {
-          this.reps += 1;
-          this.lastCountAt = timestamp;
-          this.stage = "ready";
-          this.topFrames = 0;
-          this.peakElbow = angle;
-          this.lowestElbow = null;
-          message = "ナイス！ 次の1回へ";
-        } else {
-          message = "腕を最後まで伸ばして戻そう";
-        }
-        break;
+    if (this.stage === "bottom") {
+      if (pose.height < this.bottom!.height) {
+        this.bottom = pose;
+        this.risingFrames = 0;
+      } else if (previous && pose.height > previous.height + 0.015) {
+        this.risingFrames++;
+      } else if (previous && pose.height < previous.height - 0.04) {
+        this.risingFrames = 0;
+      }
+      const bottom = this.bottom!;
+      const travel = top.height - bottom.height;
+      const returnTolerance = Math.max(0.12, travel * 0.30);
+      const shoulderTravel = displacement(top.shoulder, bottom.shoulder, top.down);
+      const recovered = pose.height >= top.height - returnTolerance &&
+        pose.height >= bottom.height + (top.height - bottom.height) * 0.72 &&
+        pose.leftHeight >= top.leftHeight - returnTolerance && pose.rightHeight >= top.rightHeight - returnTolerance &&
+        displacement(bottom.shoulder, pose.shoulder, top.down) <= -top.shoulderWidth * 0.06 &&
+        displacement(top.shoulder, pose.shoulder, top.down) <= Math.max(top.shoulderWidth * 0.12, shoulderTravel * 0.30);
+      this.topFrames = recovered ? this.topFrames + 1 : 0;
+      // A fast real rep can occupy just one upper frame. Two preceding rising
+      // frames corroborate that return; a lone model spike still cannot count.
+      const stableReturn = this.topFrames >= STABLE_FRAMES || (this.topFrames >= 1 && this.risingFrames >= 2);
+      if (stableReturn && timestamp - this.bottomAt >= MIN_BOTTOM_MS &&
+        timestamp - this.lastCountAt >= COUNT_COOLDOWN_MS) {
+        this.reps++;
+        this.lastCountAt = timestamp;
+        this.stage = "ready";
+        this.top = pose;
+        this.bottom = null;
+        this.topFrames = this.bottomFrames = 0;
+        this.risingFrames = 0;
+        return this.result(true, "ナイス！ 次の1回へ");
+      }
+      return this.result(true, "腕を伸ばして元の高さまで戻そう");
     }
-
-    return {
-      count: this.reps,
-      stage: this.stage,
-      side,
-      elbowAngle: Math.round(angle),
-      bodyAngle: Math.round(bodyAngle),
-      tracked: true,
-      validForm: true,
-      message,
-    };
+    return this.result(true, "胸をゆっくり下ろそう");
   }
 }

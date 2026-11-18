@@ -89,7 +89,7 @@ export function ChallengePage({sessions,onStart}: {sessions:TrainingSession[];on
       <div><span>最高連続</span><strong>{stats.bestStreak}<small>回</small></strong></div>
       <div><span>総合回数</span><strong>{stats.totalReps.toLocaleString("ja-JP")}<small>回</small></strong></div>
     </div>
-    <p className="micro-note">スマホを横向きに固定し、片側の肩・肘・手首・腰・足首を映してください。奥側の手足は隠れていても大丈夫です。</p>
+    <p className="micro-note">スマホを体の正面、床の近くに固定し、肩・肘・手首を映してください。足や腰は映っていなくても大丈夫です。</p>
   </>;
 }
 

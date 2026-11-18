@@ -24,15 +24,15 @@ describe("iPhone home-screen app layout", () => {
   });
 });
 
-describe("measurement orientation notice", () => {
-  it("shows a yellow triangular landscape warning only in portrait mobile layout", () => {
+describe("front-facing measurement guidance", () => {
+  it("uses the front camera and upper-body guidance in either orientation", () => {
     const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
-    expect(app).toContain('className="orientation-warning"');
-    expect(app).toContain("<strong>横向き！</strong>");
-    expect(app).toContain('viewBox="0 0 72 68"');
-    expect(app).toContain("#F8CC30");
-    expect(styles).toContain("@media (max-width: 760px) and (orientation: portrait)");
-    expect(block(".orientation-warning")).toContain("display: none");
+    expect(app).toContain('className="capture-guide"');
+    expect(app).toContain('useState<Facing>("user")');
+    expect(app).toContain("正面から肩・肘・手首を映してください");
+    expect(app).not.toContain("横向き！");
+    expect(app).not.toContain("肩・肘・手首・腰・足首");
+    expect(block(".capture-guide")).toContain("display: flex");
     expect(styles).toContain("min-height: 245px");
   });
 });

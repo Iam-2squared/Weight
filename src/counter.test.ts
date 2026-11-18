@@ -1,145 +1,91 @@
 import { describe, expect, it } from "vitest";
-import { jointAngle, PushupCounter, type Landmark } from "./counter";
+import { isVisibleLandmark, jointAngle, PushupCounter } from "./counter";
+import { FrontStream, frontPose } from "./counter-fixture";
 
-function pose(wrist: { x: number; y: number }, options?: { hipY?: number; visibility?: number }): Landmark[] {
-  const points = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }));
-  const v = options?.visibility ?? 1;
-  points[11] = { x: 0.25, y: 0.25, visibility: v }; // left shoulder
-  points[13] = { x: 0.35, y: 0.25, visibility: v }; // left elbow
-  points[15] = { ...wrist, visibility: v }; // left wrist
-  points[23] = { x: 0.55, y: options?.hipY ?? 0.29, visibility: v }; // left hip
-  points[27] = { x: 0.86, y: 0.33, visibility: v }; // left ankle
-  return points;
-}
-const top = () => pose({ x: 0.45, y: 0.25 });
-const mid = () => pose({ x: 0.39, y: 0.35 });
-const bottom = () => pose({ x: 0.35, y: 0.44 });
-const cycle = () => [top(), top(), top(), mid(), bottom(), bottom(), bottom(), top(), top(), top()];
-const leftJoints = [11, 13, 15, 23, 27];
-const rightJoints = [12, 14, 16, 24, 28];
-
-function withSides(frame: Landmark[], leftVisibility: number, rightVisibility: number): Landmark[] {
-  const points = frame.map((point) => ({ ...point }));
-  leftJoints.forEach((left, index) => {
-    points[rightJoints[index]] = { ...frame[left], visibility: rightVisibility };
-    points[left].visibility = leftVisibility;
+describe("front-view upper-body counter", () => {
+  it("counts one complete down-up cycle with only shoulders, elbows and wrists", () => {
+    const stream = new FrontStream();
+    expect(frontPose(0)).toHaveLength(17);
+    expect(stream.cycle()).toMatchObject({ count: 1, stage: "ready", tracked: true, validForm: true, bodyAngle: null });
   });
-  return points;
-}
-
-function feed(counter: PushupCounter, frames: Landmark[][], start = 0) {
-  let result = counter.snapshot();
-  frames.forEach((frame, i) => {
-    result = counter.update(frame, start + i * 100, 1280, 720);
+  it("counts repeated completed cycles once each and does not recount a held top", () => {
+    const stream = new FrontStream();
+    for (let count = 1; count <= 4; count++) expect(stream.cycle().count).toBe(count);
+    expect(stream.hold(0, 30).count).toBe(4);
   });
-  return result;
-}
-
-describe("arm angle", () => {
-  it("uses pixels instead of distorted normalized video coordinates", () => {
+  it("does not award the initial half-rep when starting at the bottom", () => {
+    const stream = new FrontStream();
+    stream.hold(1, 12);
+    expect(stream.hold(0, 12).count).toBe(0);
+    expect(stream.cycle().count).toBe(1);
+  });
+  it("waits for the upward return, rather than awarding descent", () => {
+    const stream = new FrontStream();
+    stream.hold(0);
+    expect(stream.hold(1, 15)).toMatchObject({ count: 0, stage: "bottom" });
+    expect(stream.hold(0).count).toBe(1);
+  });
+  it.each([0, 0.5, 1])("does not count a stationary depth %s", depth => {
+    expect(new FrontStream().hold(depth, 60).count).toBe(0);
+  });
+  it("does not count slight sensor wobble or shallow dips", () => {
+    const stream = new FrontStream();
+    for (let cycle = 0; cycle < 8; cycle++) stream.cycle({}, 0.15);
+    expect(stream.reading.count).toBe(0);
+  });
+  it("does not count one arm moving while the opposite shoulder stays still", () => {
+    expect(new FrontStream({ unilateral: true }).cycle().count).toBe(0);
+  });
+  it("does not count moving hands/arm curls with stationary shoulders", () => {
+    expect(new FrontStream({ curl: true }).cycle().count).toBe(0);
+  });
+  it("does not keep an unstable first-acquisition hand position as a permanent anchor", () => {
+    const stream = new FrontStream();
+    const first = frontPose(0); first[15].x += 0.3;
+    stream.counter.update(first, stream.timestamp, 1280, 720);
+    stream.timestamp += 100;
+    expect(stream.cycle().count).toBe(1);
+  });
+  it("does not award a single rising model spike above a confirmed bottom", () => {
+    const stream = new FrontStream();
+    stream.hold(0); stream.hold(1, 8);
+    expect(stream.frame(0).count).toBe(0);
+    expect(stream.hold(1, 4).count).toBe(0);
+  });
+  it.each([11, 12, 13, 14, 15, 16])("does not count when required front joint %d is absent", index => {
+    const counter = new PushupCounter();
+    for (let i = 0; i < 30; i++) {
+      const points = frontPose(i % 12 < 6 ? 0 : 1);
+      points[index].visibility = 0;
+      expect(counter.update(points, i * 100, 1280, 720).count).toBe(0);
+    }
+  });
+  it("resets an incomplete cycle after an outage", () => {
+    const stream = new FrontStream();
+    stream.hold(0); stream.hold(1, 10); stream.missing(2000);
+    expect(stream.hold(0).count).toBe(0);
+    expect(stream.cycle().count).toBe(1);
+  });
+  it("resetTracking drops a half-rep and preserves credited reps", () => {
+    const stream = new FrontStream();
+    stream.cycle(); stream.hold(1, 10); stream.counter.resetTracking();
+    expect(stream.hold(0).count).toBe(1);
+    expect(stream.cycle().count).toBe(2);
+  });
+  it("reset clears the count and starts another session without inherited movement", () => {
+    const stream = new FrontStream();
+    stream.cycle(); stream.hold(1, 10); stream.counter.reset();
+    expect(stream.hold(0).count).toBe(0);
+    expect(stream.cycle().count).toBe(1);
+  });
+  it("requires valid, finite visible coordinates", () => {
+    expect(isVisibleLandmark(undefined)).toBe(false);
+    expect(isVisibleLandmark({ x: NaN, y: 0, visibility: 1 })).toBe(false);
+    expect(isVisibleLandmark({ x: 0, y: 0, presence: 0.1 })).toBe(false);
+    expect(isVisibleLandmark({ x: 0, y: 0, visibility: 0.9, presence: 0.9 })).toBe(true);
+  });
+  it("measures angles in actual pixel geometry", () => {
     expect(jointAngle({ x: 0.25, y: 0.25 }, { x: 0.35, y: 0.25 }, { x: 0.45, y: 0.25 }, 1280, 720)).toBeCloseTo(180);
     expect(jointAngle({ x: 0.25, y: 0.25 }, { x: 0.35, y: 0.25 }, { x: 0.35, y: 0.45 }, 1280, 720)).toBeCloseTo(90);
-  });
-});
-
-describe("push-up counting", () => {
-  it("counts exactly one completed down-up cycle", () => {
-    const counter = new PushupCounter();
-    const result = feed(counter, [top(), top(), top(), mid(), bottom(), bottom(), bottom(), top(), top(), top()]);
-    expect(result.count).toBe(1);
-    expect(result.stage).toBe("ready");
-  });
-
-  it.each(["left", "right"] as const)("counts with only the %s arm and leg visible", (side) => {
-    const frames = cycle().map((frame) => withSides(frame, side === "left" ? 1 : 0, side === "right" ? 1 : 0));
-    const result = feed(new PushupCounter(), frames);
-    expect(result).toMatchObject({ count: 1, stage: "ready", side, tracked: true, validForm: true });
-  });
-
-  it.each(["left", "right"] as const)("ignores the far side outside the frame when following the %s side", (side) => {
-    const hidden = side === "left" ? rightJoints : leftJoints;
-    const frames = cycle().map((frame) => {
-      const points = withSides(frame, side === "left" ? 1 : 0.1, side === "right" ? 1 : 0.1);
-      hidden.forEach((index) => { points[index] = { x: -2, y: 3, visibility: 0.1, presence: 0 }; });
-      return points;
-    });
-    expect(feed(new PushupCounter(), frames)).toMatchObject({ count: 1, side, validForm: true });
-  });
-
-  it.each(["left", "right"] as const)("keeps tracking the %s side when far-side confidence fluctuates", (side) => {
-    const frames = cycle().map((frame, i) => {
-      const active = i % 2 === 0 ? 0.98 : 0.7;
-      const far = i % 2 === 0 ? 0.7 : 0.98;
-      return withSides(frame, side === "left" ? active : far, side === "right" ? active : far);
-    });
-    expect(feed(new PushupCounter(), frames)).toMatchObject({ count: 1, stage: "ready", side });
-  });
-
-  it("does not combine an arm from one side with a leg from the other", () => {
-    const frames = cycle().map((frame) => {
-      const points = withSides(frame, 1, 1);
-      points[15].visibility = 0.1;
-      points[28].visibility = 0.1;
-      return points;
-    });
-    expect(feed(new PushupCounter(), frames)).toMatchObject({ count: 0, tracked: false, validForm: false });
-  });
-
-  it("restarts an unfinished rep when the tracked side is genuinely lost", () => {
-    const counter = new PushupCounter();
-    const halfway = feed(counter, [top(), top(), top(), mid(), bottom(), bottom(), bottom()]);
-    expect(halfway).toMatchObject({ count: 0, stage: "bottom", side: "left" });
-    const switched = feed(counter, [top(), top(), top()].map((frame) => withSides(frame, 0.1, 1)), 700);
-    expect(switched).toMatchObject({ count: 0, stage: "ready", side: "right" });
-    const completed = feed(counter, [mid(), bottom(), bottom(), bottom(), top(), top(), top()].map((frame) => withSides(frame, 0.1, 1)), 1000);
-    expect(completed).toMatchObject({ count: 1, side: "right" });
-  });
-
-  it("does not count shallow motion", () => {
-    const counter = new PushupCounter();
-    const result = feed(counter, [top(), top(), mid(), mid(), top(), top(), top()]);
-    expect(result.count).toBe(0);
-  });
-
-  it("does not count if required joints are hidden", () => {
-    const counter = new PushupCounter();
-    const frames = [top(), top(), bottom(), bottom(), top()].map((frame) =>
-      frame.map((p, i) => (i === 27 ? { ...p, visibility: 0.2 } : p)),
-    );
-    expect(feed(counter, frames).count).toBe(0);
-  });
-
-  it("rejects bent-hip positions", () => {
-    const counter = new PushupCounter();
-    const result = feed(counter, [top(), top(), bottom(), bottom(), top(), top()].map((frame) => {
-      const copy = frame.map((p) => ({ ...p }));
-      copy[23].y = 0.62;
-      return copy;
-    }));
-    expect(result.count).toBe(0);
-    expect(result.validForm).toBe(false);
-  });
-
-  it("resets an incomplete repetition after tracking is lost", () => {
-    const counter = new PushupCounter();
-    feed(counter, [top(), top(), mid(), bottom(), bottom()]);
-    counter.update(null, 2000, 1280, 720);
-    const result = feed(counter, [top(), top(), top()], 2100);
-    expect(result.count).toBe(0);
-  });
-
-  it("does not finish an old rep after a long gap between video frames", () => {
-    const counter = new PushupCounter();
-    feed(counter, [top(), top(), mid(), bottom(), bottom(), bottom()]);
-    const result = feed(counter, [top(), top()], 3000);
-    expect(result.count).toBe(0);
-  });
-
-  it("can reset counts manually", () => {
-    const counter = new PushupCounter();
-    feed(counter, [top(), top(), mid(), bottom(), bottom(), bottom(), top(), top(), top()]);
-    counter.reset();
-    expect(counter.snapshot().count).toBe(0);
-    expect(counter.snapshot().stage).toBe("seeking");
   });
 });

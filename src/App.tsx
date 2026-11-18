@@ -12,7 +12,7 @@ type Tab = "daily" | "challenge" | "ranking" | "settings";
 type Facing = "environment" | "user";
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-const EDGES: [number, number][] = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+const EDGES: [number, number][] = [[11,12],[11,13],[13,15],[12,14],[14,16]];
 
 function draw(canvas: HTMLCanvasElement, landmarks: readonly Landmark[] | undefined, width: number, height: number) {
   if (canvas.width !== width) canvas.width = width;
@@ -30,7 +30,7 @@ function draw(canvas: HTMLCanvasElement, landmarks: readonly Landmark[] | undefi
     ctx.beginPath(); ctx.moveTo(a.x * width, a.y * height); ctx.lineTo(b.x * width, b.y * height); ctx.stroke();
   }
   ctx.fillStyle = "#F4F2EC";
-  for (const i of [11,12,13,14,15,16,23,24,25,26,27,28]) {
+  for (const i of [11,12,13,14,15,16]) {
     const p = landmarks[i];
     if (!isVisibleLandmark(p)) continue;
     ctx.beginPath(); ctx.arc(p.x * width, p.y * height, Math.max(4, width * 0.006), 0, Math.PI * 2); ctx.fill();
@@ -55,7 +55,7 @@ function speak(count: number) {
 
 export default function App() {
   const [status, setStatus] = useState<Status>("idle");
-  const [facing, setFacing] = useState<Facing>("environment");
+  const [facing, setFacing] = useState<Facing>("user");
   const [sound, setSound] = useState(true);
   const [error, setError] = useState("");
   const [member, setMember] = useState<{id:string;name:string}|null>(null);
@@ -311,11 +311,11 @@ export default function App() {
       let pose: PoseLandmarker;
       try {
         pose = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: MODEL, delegate: "GPU" }, runningMode: "VIDEO", numPoses: 1
+          baseOptions: { modelAssetPath: MODEL, delegate: "CPU" }, runningMode: "VIDEO", numPoses: 1
         });
       } catch {
         pose = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: MODEL, delegate: "CPU" }, runningMode: "VIDEO", numPoses: 1
+          baseOptions: { modelAssetPath: MODEL, delegate: "GPU" }, runningMode: "VIDEO", numPoses: 1
         });
       }
       if (session !== generation.current) { pose.close(); return; }
@@ -493,16 +493,9 @@ export default function App() {
             <span className="section-eyebrow">LIVE COUNTER</span>
             <h1>腕立て伏せ</h1>
           </div>
-          <aside className="orientation-warning" role="status" aria-label="スマホを横向きにしてください">
-            <svg className="orientation-sign" viewBox="0 0 72 68" width="62" height="60" aria-hidden="true">
-              <path d="M36 3 Q38 3 40 7 L69 57 Q72 63 64 65 H8 Q0 65 3 57 L32 7 Q34 3 36 3 Z" fill="#F8CC30" stroke="#4D3C07" strokeWidth="3.2" strokeLinejoin="round"/>
-              <path d="M36 21 V42" stroke="#4D3C07" strokeWidth="6" strokeLinecap="round"/>
-              <circle cx="36" cy="53" r="3.4" fill="#4D3C07"/>
-            </svg>
-            <div>
-              <strong>横向き！</strong>
-              <span>スマホを横にして、体の片側を映そう</span>
-            </div>
+          <aside className="capture-guide" aria-label="正面から撮影">
+            <Icon name="user" size={24}/>
+            <span>正面から肩・肘・手首を映してください</span>
           </aside>
           <section className="workout measuring-workout" aria-label="腕立て伏せ計測">
             <div className="camera">
@@ -533,7 +526,7 @@ export default function App() {
               <button type="button" className="finish-action" onClick={finishMeasurement}>終了して保存</button>
             </div>
           </section>
-          <p className="measure-hint">横から片側の肩・肘・手首・腰・足首を映してください。奥側の手足は隠れていても大丈夫です。</p>
+          <p className="measure-hint">スマホを体の正面、床の近くに固定してください。足や腰は映っていなくても大丈夫です。</p>
         </main>
       ) : (
         <main className="app-main tabs-main">
