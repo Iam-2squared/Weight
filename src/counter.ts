@@ -25,12 +25,15 @@ const JOINTS = {
 } as const;
 
 const MIN_VISIBILITY = 0.52;
-const TOP_ANGLE = 155;
-const DOWN_START_ANGLE = 136;
-const BOTTOM_ANGLE = 105;
+// Side-on camera projection does not always reach a 155°/105° elbow range.
+// Hysteresis plus a real excursion in both directions rejects small jitters.
+const TOP_ANGLE = 140;
+const DOWN_START_ANGLE = 130;
+const BOTTOM_ANGLE = 125;
+const MIN_EXCURSION = 20;
 const TOP_FRAMES = 2;
 const BOTTOM_FRAMES = 2;
-const LOST_RESET_MS = 800;
+const LOST_RESET_MS = 1500;
 const MIN_BOTTOM_MS = 250;
 const COUNT_COOLDOWN_MS = 550;
 
@@ -51,7 +54,7 @@ export function jointAngle(
   return (Math.acos(cosine) * 180) / Math.PI;
 }
 
-function visible(point: Landmark | undefined): point is Landmark {
+export function isVisibleLandmark(point: Landmark | undefined): point is Landmark {
   if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
   return (point.visibility ?? 1) >= MIN_VISIBILITY && (point.presence ?? 1) >= MIN_VISIBILITY;
 }
@@ -59,7 +62,7 @@ function visible(point: Landmark | undefined): point is Landmark {
 function selectSide(points: readonly Landmark[], activeSide: Side | null): { side: Side; joints: Landmark[] } | null {
   const candidates = (["left", "right"] as const).flatMap((side) => {
     const joints = JOINTS[side].map((index) => points[index]);
-    if (!joints.every(visible)) return [];
+    if (!joints.every(isVisibleLandmark)) return [];
     const score = joints.reduce((sum, point) => sum + (point.visibility ?? 1), 0);
     return [{ side, joints, score }];
   });
@@ -86,6 +89,8 @@ export class PushupCounter {
   private topFrames = 0;
   private bottomFrames = 0;
   private bottomAt = 0;
+  private peakElbow: number | null = null;
+  private lowestElbow: number | null = null;
   private lastCountAt = -Infinity;
   private lastTrackedAt = -Infinity;
 
@@ -102,6 +107,8 @@ export class PushupCounter {
     this.topFrames = 0;
     this.bottomFrames = 0;
     this.bottomAt = 0;
+    this.peakElbow = null;
+    this.lowestElbow = null;
     this.lastTrackedAt = -Infinity;
   }
 
@@ -119,6 +126,8 @@ export class PushupCounter {
   }
 
   private markMissing(timestamp: number, message: string): CounterSnapshot {
+    this.topFrames = 0;
+    this.bottomFrames = 0;
     if (timestamp - this.lastTrackedAt > LOST_RESET_MS) this.resetTracking();
     return { ...this.snapshot(), message };
   }
@@ -167,6 +176,8 @@ export class PushupCounter {
       this.stage = "seeking";
       this.topFrames = 0;
       this.bottomFrames = 0;
+      this.peakElbow = null;
+      this.lowestElbow = null;
       return {
         ...this.snapshot(),
         elbowAngle: Math.round(angle),
@@ -179,32 +190,45 @@ export class PushupCounter {
       };
     }
 
+    // Process the first descending frame immediately, so a normal-speed rep
+    // does not lose an extra frame just changing from ready to lowering.
+    if (this.stage === "ready") {
+      this.peakElbow = Math.max(this.peakElbow ?? angle, angle);
+      if (angle < DOWN_START_ANGLE) {
+        this.stage = "lowering";
+        this.topFrames = 0;
+        this.bottomFrames = 0;
+      }
+    }
+
     let message = "肘を伸ばし、スタート姿勢を取ってください";
     switch (this.stage) {
       case "seeking":
         this.topFrames = angle >= TOP_ANGLE ? this.topFrames + 1 : 0;
+        this.peakElbow = this.topFrames ? Math.max(this.peakElbow ?? angle, angle) : null;
         if (this.topFrames >= TOP_FRAMES) this.stage = "ready";
         message = this.stage === "ready" ? "準備OK。ゆっくり下ろそう" : message;
         break;
       case "ready":
-        if (angle < DOWN_START_ANGLE) {
-          this.stage = "lowering";
-          this.bottomFrames = 0;
-        }
-        message = this.stage === "lowering" ? "もう少し深く下ろそう" : "肘を曲げて下ろそう";
+        message = "肘を曲げて下ろそう";
         break;
       case "lowering":
-        this.bottomFrames = angle <= BOTTOM_ANGLE ? this.bottomFrames + 1 : 0;
+        this.bottomFrames = angle <= BOTTOM_ANGLE && this.peakElbow !== null &&
+          this.peakElbow - angle >= MIN_EXCURSION ? this.bottomFrames + 1 : 0;
         if (this.bottomFrames >= BOTTOM_FRAMES) {
           this.stage = "bottom";
           this.bottomAt = timestamp;
+          this.lowestElbow = angle;
         } else if (angle >= TOP_ANGLE) {
           this.stage = "ready"; // Shallow dip is not a rep.
+          this.peakElbow = angle;
         }
         message = this.stage === "bottom" ? "そのまま腕を伸ばそう" : "胸をゆっくり下ろそう";
         break;
       case "bottom":
-        this.topFrames = angle >= TOP_ANGLE ? this.topFrames + 1 : 0;
+        this.lowestElbow = Math.min(this.lowestElbow ?? angle, angle);
+        this.topFrames = angle >= TOP_ANGLE && angle - this.lowestElbow >= MIN_EXCURSION
+          ? this.topFrames + 1 : 0;
         if (
           this.topFrames >= TOP_FRAMES &&
           timestamp - this.bottomAt >= MIN_BOTTOM_MS &&
@@ -214,6 +238,8 @@ export class PushupCounter {
           this.lastCountAt = timestamp;
           this.stage = "ready";
           this.topFrames = 0;
+          this.peakElbow = angle;
+          this.lowestElbow = null;
           message = "ナイス！ 次の1回へ";
         } else {
           message = "腕を最後まで伸ばして戻そう";

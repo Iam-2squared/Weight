@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
-import { PushupCounter, type CounterSnapshot, type Landmark } from "./counter";
+import { PushupCounter, isVisibleLandmark, type CounterSnapshot, type Landmark } from "./counter";
 import { RepStreakTracker } from "./rep-streak";
 import { Icon } from "./icons";
 import { DailyPage, ChallengePage, RankingPage, SettingsPage } from "./pages";
@@ -21,19 +21,18 @@ function draw(canvas: HTMLCanvasElement, landmarks: readonly Landmark[] | undefi
   if (!ctx) return;
   ctx.clearRect(0, 0, width, height);
   if (!landmarks) return;
-  const shown = (p: Landmark | undefined) => !!p && (p.visibility ?? 1) >= 0.52;
   ctx.lineWidth = Math.max(3, width * 0.004);
   ctx.lineCap = "round";
   ctx.strokeStyle = "#9FB3C8";
   for (const [i,j] of EDGES) {
     const a = landmarks[i], b = landmarks[j];
-    if (!shown(a) || !shown(b)) continue;
+    if (!isVisibleLandmark(a) || !isVisibleLandmark(b)) continue;
     ctx.beginPath(); ctx.moveTo(a.x * width, a.y * height); ctx.lineTo(b.x * width, b.y * height); ctx.stroke();
   }
   ctx.fillStyle = "#F4F2EC";
   for (const i of [11,12,13,14,15,16,23,24,25,26,27,28]) {
     const p = landmarks[i];
-    if (!shown(p)) continue;
+    if (!isVisibleLandmark(p)) continue;
     ctx.beginPath(); ctx.arc(p.x * width, p.y * height, Math.max(4, width * 0.006), 0, Math.PI * 2); ctx.fill();
   }
 }
@@ -464,7 +463,7 @@ export default function App() {
   const cameraMessage = status === "error" ? error
     : status === "loading" ? "準備中…"
     : status === "paused" ? "一時停止中"
-    : status === "running" && (!reading.tracked || !reading.validForm) ? reading.message
+    : status === "running" ? reading.message
     : null;
 
   return (
