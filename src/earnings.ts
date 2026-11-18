@@ -1,5 +1,8 @@
+import {loadSessions} from "./training";
+
 /** Each pending workout has its own key, so another tab cannot overwrite the queue. */
 const PREFIX="weight.rewards.v1:";
+const IMPORT_PREFIX="weight.rewards.import.v1:";
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const SESSION=/^[A-Za-z0-9_-]{8,80}$/;
 const MONEY_LIMIT=10000000000000;
@@ -26,6 +29,18 @@ export function queueReward(owner:string,receipt:PendingReward):void{
     return;
   }
   window.localStorage.setItem(key,JSON.stringify(receipt));
+}
+/** Reuse original IDs so sessions already paid by a previous version replay safely. */
+export function importSavedRewards(owner:string):number{
+  ownerPrefix(owner);
+  const marker=IMPORT_PREFIX+owner.toLowerCase();
+  if(window.localStorage.getItem(marker)==="complete")return 0;
+  const records=loadSessions(owner,true);
+  // A partial storage failure leaves the marker unset and existing claims
+  // intact. Retrying writes the same original IDs, never replacement IDs.
+  for(const record of records)queueReward(owner,{sessionId:record.id,reps:record.reps});
+  window.localStorage.setItem(marker,"complete");
+  return records.length;
 }
 export function pendingRewards(owner:string):PendingReward[]{
   const prefix=ownerPrefix(owner),records:PendingReward[]=[];

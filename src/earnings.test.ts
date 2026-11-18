@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
-import {acknowledgeReward,earningsPayload,pendingRewards,queueReward,rewardReceipt} from "./earnings";
+import {acknowledgeReward,earningsPayload,importSavedRewards,pendingRewards,queueReward,rewardReceipt} from "./earnings";
 import {clearSessions,saveSession} from "./training";
 
 const A="123e4567-e89b-12d3-a456-426614174000";
@@ -28,12 +28,63 @@ describe("completed-workout reward outbox",()=>{
     acknowledgeReward(A,first);
     expect(pendingRewards(A)).toHaveLength(1);
   });
-  it("does not convert historical local training into rewards and retains pending claims after clearing history",()=>{
+  it("imports saved authenticated history with its original ID once and retains claims after clearing history",()=>{
     const record={id:"old-workout",reps:20,durationSec:60,endedAt:"2026-11-18T01:00:00.000Z"};
     saveSession(A,record);
     expect(pendingRewards(A)).toEqual([]);
+    expect(importSavedRewards(A)).toBe(1);
+    expect(pendingRewards(A)).toEqual([{sessionId:record.id,reps:20}]);
+    acknowledgeReward(A,{sessionId:record.id,reps:20});
+    expect(importSavedRewards(A)).toBe(0);
+    expect(pendingRewards(A)).toEqual([]);
     queueReward(A,first);clearSessions(A);
     expect(pendingRewards(A)).toEqual([first]);
+  });
+  it("does not import guest or another account's saved history",()=>{
+    const record={id:"old-workout",reps:130,durationSec:60,endedAt:"2026-11-18T01:00:00.000Z"};
+    saveSession(null,record);saveSession(A,record);
+    expect(importSavedRewards(B)).toBe(0);
+    expect(pendingRewards(B)).toEqual([]);
+    expect(importSavedRewards(A)).toBe(1);
+    expect(pendingRewards(A)).toEqual([{sessionId:record.id,reps:130}]);
+    expect(()=>importSavedRewards("guest")).toThrow();
+  });
+  it("keeps partially imported IDs and retries without marking a failed import complete",()=>{
+    const record={reps:65,durationSec:60,endedAt:"2026-11-18T01:00:00.000Z"};
+    saveSession(A,{...record,id:"historical-one"});saveSession(A,{...record,id:"historical-two"});
+    const original=window.localStorage.setItem.bind(window.localStorage);
+    let queued=0;
+    const spy=vi.spyOn(window.localStorage,"setItem").mockImplementation((key,value)=>{
+      if(key.startsWith("weight.rewards.v1:")&&++queued===2)throw Error("Quota");
+      original(key,value);
+    });
+    expect(()=>importSavedRewards(A)).toThrow("Quota");
+    expect(pendingRewards(A)).toHaveLength(1);
+    expect(window.localStorage.getItem("weight.rewards.import.v1:"+A)).toBeNull();
+    spy.mockRestore();
+    expect(importSavedRewards(A)).toBe(2);
+    expect(pendingRewards(A)).toEqual([{sessionId:"historical-one",reps:65},{sessionId:"historical-two",reps:65}]);
+    expect(window.localStorage.getItem("weight.rewards.import.v1:"+A)).toBe("complete");
+  });
+  it("never marks an inaccessible or malformed history as imported",()=>{
+    const historyKey="weight.training.v1:"+A,marker="weight.rewards.import.v1:"+A;
+    const original=window.localStorage.getItem.bind(window.localStorage);
+    const spy=vi.spyOn(window.localStorage,"getItem").mockImplementation(key=>{
+      if(key===historyKey)throw Error("Storage temporarily blocked");
+      return original(key);
+    });
+    expect(()=>importSavedRewards(A)).toThrow("Storage temporarily blocked");
+    expect(window.localStorage.getItem(marker)).toBeNull();
+    spy.mockRestore();
+    for(const raw of ["{broken","{}"]){
+      window.localStorage.setItem(historyKey,raw);
+      expect(()=>importSavedRewards(A)).toThrow();
+      expect(window.localStorage.getItem(marker)).toBeNull();
+    }
+    window.localStorage.setItem(historyKey,JSON.stringify([{id:"historical-one",reps:130,durationSec:60,endedAt:"2026-11-18T01:00:00.000Z"}]));
+    expect(importSavedRewards(A)).toBe(1);
+    expect(pendingRewards(A)).toEqual([{sessionId:"historical-one",reps:130}]);
+    expect(window.localStorage.getItem(marker)).toBe("complete");
   });
   it("rejects invalid or conflicting local data instead of submitting it",()=>{
     queueReward(A,first);

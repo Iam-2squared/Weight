@@ -3,24 +3,32 @@
 // no production service, actual camera, pose model, or hosted reward is used.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {chromium,webkit}=require('/workspace/Target-challenge/node_modules/playwright');
-const root=path.resolve(__dirname,'..'),artifact='/workspace/artifacts/weight-rewards';
+const root=path.resolve(__dirname,'..'),artifact=process.env.WEIGHT_QA_ARTIFACT||'/workspace/artifacts/weight-historical-rewards';
 const A={id:'00000000-0000-4000-8000-000000000001',name:'Workout A'};
 const B={id:'00000000-0000-4000-8000-000000000002',name:'Workout B'};
 const walletA={memberId:A.id,weightIncome:1234567000,totalIncome:9999999999990,balance:9999999998990};
 const walletB={memberId:B.id,weightIncome:23000,totalIncome:987000,balance:900000};
 const trainingKey=id=>'weight.training.v1:'+id;
 const pendingKey=(id,sessionId)=>'weight.rewards.v1:'+id+':'+sessionId;
+const importKey=id=>'weight.rewards.import.v1:'+id;
 const history=[{id:'historic-no-backfill',reps:15,bestStreak:8,durationSec:80,endedAt:'2026-11-18T10:00:00.000Z'}];
+const historical130=[
+ {id:'historical-workout-080',reps:80,bestStreak:40,durationSec:600,endedAt:'2026-11-18T10:00:00.000Z'},
+ {id:'historical-workout-050',reps:50,bestStreak:20,durationSec:400,endedAt:'2026-11-18T09:00:00.000Z'}
+];
+const beforeCatchup={memberId:A.id,weightIncome:0,totalIncome:25000,balance:20000};
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 let checks=0;
 function eq(actual,expected,message){assert.deepEqual(actual,expected,message);checks++;}
 function ok(value,message){assert.ok(value,message);checks++;}
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
-async function environment(browser,origin,{member=A,viewport={width:320,height:568},statusFailure=false,holdStatus=false,seedPending=null,rewardFailure=false,holdReward=false}={}){
+async function environment(browser,origin,{member=A,viewport={width:320,height:568},statusFailure=false,holdStatus=false,seedPending=null,rewardFailure=false,holdReward=false,seedHistory=history,imported=true,initialWallet=null,alreadyPaid=null,storageFailureSessionId=null,historyReadFailure=null}={}){
  const context=await browser.newContext({viewport,reducedMotion:'reduce'}),page=await context.newPage();
  const state={member,statusFailure,holdStatus,statusRequests:[],rewardRequests:[],heldStatuses:[],heldRewards:[],holdReward,rewardFailure,committed:new Map(),wallets:new Map([[A.id,{...walletA}],[B.id,{...walletB}]]),errors:[],external:[],allRequests:[]};
  if(seedPending)state.wallets.set(A.id,{memberId:A.id,weightIncome:1000,totalIncome:10000,balance:9000});
+ if(initialWallet)state.wallets.set(A.id,{...initialWallet});
+ if(alreadyPaid)state.committed.set(A.id+':'+alreadyPaid.sessionId,{expectedMemberId:A.id,...alreadyPaid});
  page.on('pageerror',e=>state.errors.push(e.message));
  await context.route('**/*',async route=>{
   const request=route.request(),url=new URL(request.url());
@@ -54,16 +62,32 @@ async function environment(browser,origin,{member=A,viewport={width:320,height:5
   }
   return route.continue();
  });
- await context.addInitScript(({A,B,history,seedPending})=>{
+ await context.addInitScript(({A,B,seedHistory,seedPending,imported,storageFailureSessionId,historyReadFailure})=>{
   if(!sessionStorage.getItem('fixture-initialized')){
-   localStorage.setItem('weight.training.v1:'+A.id,JSON.stringify(history));
+   localStorage.setItem('weight.training.v1:'+A.id,JSON.stringify(seedHistory));
    localStorage.setItem('weight.training.v1:'+B.id,JSON.stringify([]));
+   if(imported)for(const owner of[A.id,B.id])localStorage.setItem('weight.rewards.import.v1:'+owner,'complete');
    if(seedPending)localStorage.setItem('weight.rewards.v1:'+seedPending.owner+':'+seedPending.sessionId,JSON.stringify({sessionId:seedPending.sessionId,reps:seedPending.reps}));
    sessionStorage.setItem('fixture-initialized','yes');
   }
+  window.__storageFailureSessionId=storageFailureSessionId;
+  window.__historyReadFailure=historyReadFailure;
+  const originalGet=Storage.prototype.getItem;
+  Storage.prototype.getItem=function(key){
+   if(key==='weight.training.v1:'+A.id&&window.__historyReadFailure){
+    if(window.__historyReadFailure==='throw')throw new DOMException('Synthetic blocked history read','SecurityError');
+    return window.__historyReadFailure==='json'?'{':'{}';
+   }
+   return originalGet.call(this,key);
+  };
+  const originalSet=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key,value){
+   if(key.startsWith('weight.rewards.v1:')&&window.__storageFailureSessionId&&key.endsWith(':'+window.__storageFailureSessionId))throw new DOMException('Synthetic storage quota','QuotaExceededError');
+   return originalSet.call(this,key,value);
+  };
   window.__cameraStarts=0;
   Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{window.__cameraStarts++;throw Error('Camera must not start in reward UI test');}}});
- },{A,B,history,seedPending});
+ },{A,B,seedHistory,seedPending,imported,storageFailureSessionId,historyReadFailure});
  await page.goto(origin,{waitUntil:'domcontentloaded'});
  return {context,page,state};
 }
@@ -109,7 +133,7 @@ async function main(){
      eq(await page.locator('.earnings-values dt').allTextContents(),['Weightで獲得','総所得'],'two independent income summaries');
      eq(await values(page),['1,234,567,000轟','9,999,999,999,990轟'],'large canonical income values, not local rep multiplication');
      ok((await page.locator('.earnings-heading').textContent()).includes('1回 1,000轟'),'per-rep conversion is visible');
-     eq(state.rewardRequests,[],'existing saved history is never retroactively credited');
+     eq(state.rewardRequests,[],'already-imported history is never resubmitted by settings refresh');
      await layout(page);
      state.statusFailure=true;await page.getByRole('button',{name:'轟を更新',exact:true}).click();
      await page.locator('.earnings-error').waitFor();
@@ -156,6 +180,84 @@ async function main(){
      await page.locator('.earnings-guest button').click();await page.getByRole('dialog').waitFor();
      await page.getByRole('button',{name:'閉じる',exact:true}).click();
      await layout(page);await noCamera(page,state);results.push({engine,case:'guest',checks:checks-at,passed:true});
+    }finally{await context.close();}
+   }
+   {
+    const at=checks,{context,page,state}=await environment(browser,origin,{seedHistory:historical130,imported:false,initialWallet:beforeCatchup});
+    try{
+     await settings(page);await loaded(page);
+     eq(await values(page),['130,000轟','155,000轟'],'130 previously saved authenticated reps award 130000, included in shared total');
+     eq(state.committed.size,2,'one permanent receipt per original historical workout');
+     eq(new Set(state.rewardRequests.map(row=>row.input.sessionId)),new Set(historical130.map(row=>row.id)),'historical import reuses original IDs');
+     ok(state.rewardRequests.every(row=>row.input.expectedMemberId===A.id),'historic rewards stay bound to their original member');
+     eq(await page.evaluate(key=>localStorage.getItem(key),importKey(A.id)),'complete','successful complete import writes durable member marker');
+     eq(await page.evaluate(owner=>Object.keys(localStorage).filter(key=>key.startsWith('weight.rewards.v1:'+owner+':')),A.id),[],'all imported receipts acknowledged');
+     const requestsAfterCatchup=state.rewardRequests.length;
+     for(let i=0;i<2;i++){await page.reload({waitUntil:'domcontentloaded'});await settings(page);await loaded(page);}
+     eq(await values(page),['130,000轟','155,000轟'],'repeated reload preserves exact paid total');
+     eq(state.rewardRequests.length,requestsAfterCatchup,'completed migration does not resubmit history on reload');
+     eq(state.committed.size,2,'repeated reload cannot pay historical workouts twice');
+     eq((await page.evaluate(key=>JSON.parse(localStorage.getItem(key)||'[]'),trainingKey(A.id))).reduce((sum,row)=>sum+row.reps,0),130,'reward catchup leaves exercise history intact');
+     await noCamera(page,state);results.push({engine,case:'historical-130-catchup-repeat-reload',checks:checks-at,passed:true});
+    }finally{await context.close();}
+   }
+   {
+    const alreadyPaid={sessionId:historical130[0].id,reps:80};
+    const at=checks,{context,page,state}=await environment(browser,origin,{seedHistory:historical130,imported:false,
+     initialWallet:{memberId:A.id,weightIncome:80000,totalIncome:105000,balance:100000},alreadyPaid});
+    try{
+     await settings(page);await loaded(page);
+     eq(await values(page),['130,000轟','155,000轟'],'historical receipt already paid80 plus unpaid50 reaches130000, not210000');
+     eq(state.committed.size,2,'already-paid historical receipt is replayed without another commit');
+     ok(state.rewardRequests.some(row=>row.input.sessionId===alreadyPaid.sessionId),'paid original ID was checked by authoritative receipt replay');
+     eq(state.rewardRequests.length,2,'each historical record considered once in migration');
+     await noCamera(page,state);results.push({engine,case:'historical-already-paid-replay',checks:checks-at,passed:true});
+    }finally{await context.close();}
+   }
+   {
+    const at=checks,{context,page,state}=await environment(browser,origin,{seedHistory:historical130,imported:false,
+     initialWallet:beforeCatchup,storageFailureSessionId:historical130[1].id});
+    try{
+     await settings(page);await page.locator('.earnings-error').waitFor();
+     eq(await page.evaluate(key=>localStorage.getItem(key),importKey(A.id)),null,'partial queue write cannot mark historical import complete');
+     ok(await page.evaluate(key=>localStorage.getItem(key)!==null,pendingKey(A.id,historical130[0].id)),'first historical workout survives partial storage failure');
+     eq(state.committed.size,0,'partial queue storage failure sends no unrecorded synthetic reward');
+     await page.evaluate(()=>{window.__storageFailureSessionId=null;});
+     await page.getByRole('button',{name:'轟を更新',exact:true}).click();await loaded(page);
+     eq(await values(page),['130,000轟','155,000轟'],'retry recovers all130reps after partial local storage failure');
+     eq(state.committed.size,2,'partially imported workout paid once after retry');
+     eq(await page.evaluate(key=>localStorage.getItem(key),importKey(A.id)),'complete','only complete durable queue marks import done');
+     eq(new Set(state.rewardRequests.map(row=>row.input.sessionId)),new Set(historical130.map(row=>row.id)),'partial retry preserves original session IDs');
+     await noCamera(page,state);results.push({engine,case:'historical-partial-queue-recovery',checks:checks-at,passed:true});
+    }finally{await context.close();}
+   }
+   {
+    const at=checks,{context,page,state}=await environment(browser,origin,{member:B,seedHistory:historical130,imported:false,initialWallet:beforeCatchup});
+    try{
+     await settings(page);await loaded(page);eq(await values(page),['23,000轟','987,000轟'],'B does not inherit A historical earnings');
+     eq(state.rewardRequests.length,0,'B login does not queue A history');
+     eq(await page.evaluate(key=>localStorage.getItem(key),importKey(A.id)),null,'B login does not mark A history imported');
+     await page.getByRole('button',{name:'ログアウト',exact:true}).click();await page.locator('.earnings-guest').waitFor();
+     await signIn(page,1);await loaded(page);
+     eq(await values(page),['130,000轟','155,000轟'],'returning A imports only its own130savedreps');
+     eq(state.wallets.get(B.id),walletB,'A catchup leaves B wallet unchanged');
+     ok(state.rewardRequests.every(row=>row.input.expectedMemberId===A.id),'historic catchup always asserts actual owning account');
+     await noCamera(page,state);results.push({engine,case:'historical-account-isolation',checks:checks-at,passed:true});
+    }finally{await context.close();}
+   }
+   for(const historyReadFailure of['throw','json','shape']){
+    const at=checks,{context,page,state}=await environment(browser,origin,{seedHistory:historical130,imported:false,initialWallet:beforeCatchup,historyReadFailure});
+    try{
+     await settings(page);await page.locator('.earnings-error').waitFor();
+     eq(await page.evaluate(key=>localStorage.getItem(key),importKey(A.id)),null,'unreadable history must not be marked as an empty completed import');
+     eq(state.committed.size,0,'unreadable history cannot produce an invented credit');
+     eq(state.rewardRequests.length,0,'history read failure stops before reward requests');
+     await page.evaluate(()=>{window.__historyReadFailure=null;});
+     await page.getByRole('button',{name:'轟を更新',exact:true}).click();await loaded(page);
+     eq(await values(page),['130,000轟','155,000轟'],'restored historical read recovers all130reps rather than being skipped forever');
+     eq(state.committed.size,2,'both restored original historical IDs paid once');
+     eq(await page.evaluate(key=>localStorage.getItem(key),importKey(A.id)),'complete','restored successful read permits durable import completion');
+     await noCamera(page,state);results.push({engine,case:'historical-read-failure-'+historyReadFailure,checks:checks-at,passed:true});
     }finally{await context.close();}
    }
    {
@@ -257,8 +359,8 @@ async function main(){
    }
   }finally{await browser.close();}
  }}finally{await server.close();}
- const sourceHashes={};for(const file of['src/App.tsx','src/pages.tsx','src/styles.css','src/earnings.ts','src/useWeightEarnings.ts','api/earnings.js','src/counter.ts','src/rep-streak.ts'])sourceHashes[file]=sha(await fs.readFile(path.join(root,file)));
- const report={passed:true,checkedAt:new Date().toISOString(),checks,results,sourceHashes,hostedRequests:0,acceptedHostedMutations:0,cameraStarted:false,poseInferenceTested:false,workoutCountFixture:'Explicit synthetic runtime count/streak; real App finish/save/queue handlers'};
+ const sourceHashes={};for(const file of['src/App.tsx','src/pages.tsx','src/styles.css','src/earnings.ts','src/useWeightEarnings.ts','src/training.ts','api/earnings.js','src/counter.ts','src/rep-streak.ts'])sourceHashes[file]=sha(await fs.readFile(path.join(root,file)));
+ const report={passed:true,checkedAt:new Date().toISOString(),checks,results,sourceHashes,hostedRequests:0,acceptedHostedMutations:0,cameraStarted:false,poseInferenceTested:false,historical130CatchupCovered:true,workoutCountFixture:'Explicit synthetic runtime count/streak; real App finish/save/queue handlers'};
  await fs.writeFile(path.join(artifact,'browser-report.json'),JSON.stringify(report,null,2)+'\n');
  console.log(JSON.stringify({passed:true,checks,cases:results.length,report:path.join(artifact,'browser-report.json')}));
 }

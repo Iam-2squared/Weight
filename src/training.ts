@@ -82,11 +82,15 @@ export function sanitizeSessions(value: unknown): TrainingSession[] {
   return result.sort((a, b) => b.endedAt.localeCompare(a.endedAt));
 }
 
-export function loadSessions(accountId: string | null): TrainingSession[] {
+export function loadSessions(accountId: string | null, strict = false): TrainingSession[] {
   try {
     const raw = window.localStorage.getItem(storageKey(accountId));
-    return raw ? sanitizeSessions(JSON.parse(raw)) : [];
-  } catch {
+    if (!raw) return [];
+    const decoded: unknown = JSON.parse(raw);
+    if (strict && !Array.isArray(decoded)) throw new Error("Invalid session history");
+    return sanitizeSessions(decoded);
+  } catch (error) {
+    if (strict) throw error;
     return [];
   }
 }

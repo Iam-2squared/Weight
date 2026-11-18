@@ -437,8 +437,8 @@ export default function App() {
         durationSec: countedSec,
         endedAt: new Date(ended).toISOString(),
       };
-      // Queue this completed workout once. Historical records and guest
-      // workouts never become reward claims merely by logging in.
+      // Queue this completed workout once under the measured account.
+      // Guest workouts never become another account's reward claims.
       const durableReward=!measureAccount.current||earnings.enqueue(measureAccount.current,{sessionId:record.id,reps:record.reps});
       try {
         const saved = saveSession(measureAccount.current,record);

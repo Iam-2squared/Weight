@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from "react";
-import {acknowledgeReward,earningsPayload,pendingRewards,queueReward,rewardReceipt,
+import {acknowledgeReward,earningsPayload,importSavedRewards,pendingRewards,queueReward,rewardReceipt,
   type Earnings,type PendingReward} from "./earnings";
 
 interface EarningsState {owner:string|null;wallet:Earnings|null;loading:boolean;error:string;pending:number;}
@@ -20,6 +20,7 @@ export function useWeightEarnings(owner:string|null){
     const work=async()=>{
       let pending:PendingReward[]=[];
       try{
+        importSavedRewards(requestedOwner);
         const queued=new Map(pendingRewards(requestedOwner).map(row=>[row.sessionId,row]));
         for(const row of unsaved.current.get(requestedOwner)?.values()||[])queued.set(row.sessionId,row);
         pending=[...queued.values()];
@@ -36,7 +37,8 @@ export function useWeightEarnings(owner:string|null){
           const receipt=response.ok?rewardReceipt(data,requestedOwner,record):null;
           if(!receipt){
             if(response.status===401)setState({owner:requestedOwner,wallet:null,loading:true,error:"",pending:pending.length});
-            throw Error(response.status===401?"KGSに再ログインしてください。":"轟を同期できません。更新して再試行してください。");
+            throw Error(response.status===401?"KGSに再ログインしてください。":response.status===429?
+              "同期が多いため、1分ほどおいて更新してください。":"轟を同期できません。更新して再試行してください。");
           }
           acknowledgeReward(requestedOwner,record);
           unsaved.current.get(requestedOwner)?.delete(record.sessionId);
@@ -53,7 +55,7 @@ export function useWeightEarnings(owner:string|null){
         }
         setState(previous=>({...previous,owner:requestedOwner,wallet,loading:false,error:""}));
       }catch(error){
-        const message=error instanceof Error&&/^(KGSに再ログインしてください。|轟を同期できません。更新して再試行してください。|轟を取得できません。更新して再試行してください。)$/.test(error.message)
+        const message=error instanceof Error&&/^(KGSに再ログインしてください。|轟を同期できません。更新して再試行してください。|轟を取得できません。更新して再試行してください。|同期が多いため、1分ほどおいて更新してください。)$/.test(error.message)
           ?error.message:"轟を同期できません。更新して再試行してください。";
         if(current())setState(previous=>({owner:requestedOwner,wallet:previous.owner===requestedOwner?previous.wallet:null,
           loading:false,error:message,pending:previous.owner===requestedOwner?previous.pending:pending.length}));
