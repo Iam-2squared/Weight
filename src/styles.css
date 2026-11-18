@@ -295,6 +295,21 @@ button:disabled { opacity: .55; cursor: wait; }
 .toggle.on { background: #334155; border-color: #334155; }
 .toggle.on i { transform: translateX(20px); }
 .settings-privacy { max-width: 570px; font-size: 11px; color: #75879A; line-height: 1.85; }
+.earnings-heading { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #E3E9EF; padding: 13px 20px; }
+.earnings-heading h2 { border: 0; padding: 0; color: #334155; }
+.earnings-heading>span { margin-left: auto; font-size: 11px; color: #64748B; }
+.earnings-heading .settings-outline { min-height: 38px; padding: 8px 11px; }
+.earnings-values { margin: 0; padding: 0 20px; }
+.earnings-values>div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 7px 16px; padding: 19px 0; }
+.earnings-values>div+div { border-top: 1px solid #E8EDF2; }
+.earnings-values dt { color: #64748B; font-size: 12px; }
+.earnings-values dd { margin: 0 0 0 auto; color: #334155; font-size: clamp(20px, 4.9vw, 28px); font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.earnings-values dd small { margin-left: 5px; font-size: 11px; font-weight: 550; }
+.earnings-note, .earnings-error { margin: 0; padding: 0 20px 14px; font-size: 11px; line-height: 1.7; }
+.earnings-note { color: #75879A; }
+.earnings-error { color: #9F3535; }
+.earnings-guest { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+.earnings-guest p { margin: 0; color: #64748B; font-size: 12px; line-height: 1.7; }
 .bottom-nav { position: fixed; z-index: 15; bottom: 0; left: 0; right: 0; background: #FFFFFF; border-top: 1px solid #BAC8D4; padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); }
 .bottom-nav-inner { max-width: 600px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .nav-item { border: none; border-radius: 11px; display: grid; place-items: center; height: 51px; background: transparent; color: #8193A8; }

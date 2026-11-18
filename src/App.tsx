@@ -6,6 +6,7 @@ import { Icon } from "./icons";
 import { DailyPage, ChallengePage, RankingPage, SettingsPage } from "./pages";
 import type {SharedRank} from "./LeaderboardLandscape";
 import { loadSessions, saveSession, clearSessions, formatDuration, trainingTotals, type TrainingSession } from "./training";
+import {useWeightEarnings} from "./useWeightEarnings";
 
 type Status = "idle" | "loading" | "running" | "paused" | "error";
 type Tab = "daily" | "challenge" | "ranking" | "settings";
@@ -59,6 +60,7 @@ export default function App() {
   const [sound, setSound] = useState(true);
   const [error, setError] = useState("");
   const [member, setMember] = useState<{id:string;name:string}|null>(null);
+  const earnings=useWeightEarnings(member?.id??null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState("");
@@ -129,6 +131,10 @@ export default function App() {
   useEffect(() => {
     setSessions(loadSessions(member?.id ?? null));
   }, [member?.id]);
+
+  useEffect(()=>{
+    if(tab==="settings"&&member)void earnings.refresh();
+  },[tab,member?.id,earnings.refresh]);
 
   useEffect(() => {
     if (!measuring) return;
@@ -431,6 +437,9 @@ export default function App() {
         durationSec: countedSec,
         endedAt: new Date(ended).toISOString(),
       };
+      // Queue this completed workout once. Historical records and guest
+      // workouts never become reward claims merely by logging in.
+      const durableReward=!measureAccount.current||earnings.enqueue(measureAccount.current,{sessionId:record.id,reps:record.reps});
       try {
         const saved = saveSession(measureAccount.current,record);
         if (measureAccount.current === (member?.id ?? null)) {
@@ -438,6 +447,7 @@ export default function App() {
           // Every KGS login is automatically listed; keep it up to date.
           if(member)void publishRanking(saved,member.id);
         }
+        if(!durableReward)setSaveError("記録は保存済みです。轟の送信を続けるため、この画面を閉じずに設定から更新してください。");
       } catch {
         setSaveError("保存できませんでした。端末の保存容量を確認してください。");
       }
@@ -550,7 +560,9 @@ export default function App() {
               onChallenge={()=>setTab("challenge")}/>}
             {tab==="settings" && <SettingsPage member={member} sound={sound} onSoundChange={setSoundPreference}
               onLogin={()=>{setLoginError("");setLoginOpen(true);}} onLogout={()=>void signOut()}
-              onClear={clearHistory} sessionCount={sessions.length}/>}
+              onClear={clearHistory} sessionCount={sessions.length}
+              earnings={earnings.wallet} earningsLoading={earnings.loading} earningsError={earnings.error}
+              pendingRewards={earnings.pending} onRefreshEarnings={()=>void earnings.refresh()}/>}
           </div>
           {saveError && <p className="save-error" role="alert">{saveError}</p>}
         </main>

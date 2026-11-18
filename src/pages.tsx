@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from "react";
 import { Icon } from "./icons";
 import type { SharedRank } from "./LeaderboardLandscape";
+import type {Earnings} from "./earnings";
 import {
   japanDay, monthGrid, streakStats, trainingTotals,
   summariesByDay, type TrainingSession,
@@ -184,8 +185,15 @@ interface SettingsProps {
   onLogout:()=>void;
   onClear:()=>void;
   sessionCount:number;
+  earnings:Earnings|null;
+  earningsLoading:boolean;
+  earningsError:string;
+  pendingRewards:number;
+  onRefreshEarnings:()=>void;
 }
-export function SettingsPage({member,sound,onSoundChange,onLogin,onLogout,onClear,sessionCount}:SettingsProps){
+export function SettingsPage({member,sound,onSoundChange,onLogin,onLogout,onClear,sessionCount,
+  earnings,earningsLoading,earningsError,pendingRewards,onRefreshEarnings}:SettingsProps){
+  const wallet=member&&earnings?.memberId===member.id?earnings:null;
   return <>
     <PageHeader eyebrow="PREFERENCES" title="設定"/>
     <section className="settings-section">
@@ -196,6 +204,23 @@ export function SettingsPage({member,sound,onSoundChange,onLogin,onLogout,onClea
         </div>
         <button type="button" className="settings-outline" onClick={member?onLogout:onLogin}>{member?"ログアウト":"ログイン"}</button>
       </div>
+    </section>
+    <section className="settings-section earnings-section" aria-labelledby="earnings-title" aria-busy={member?earningsLoading:undefined}>
+      <div className="earnings-heading"><h2 id="earnings-title">轟</h2><span>1回 1,000轟</span>
+        {member&&<button type="button" className="settings-outline" onClick={onRefreshEarnings} disabled={earningsLoading}
+          aria-label="轟を更新">{earningsLoading?"更新中…":"更新"}</button>}
+      </div>
+      {member?<>
+        <dl className="earnings-values">
+          <div><dt>Weightで獲得</dt><dd>{wallet?wallet.weightIncome.toLocaleString("ja-JP"):"—"}<small>轟</small></dd></div>
+          <div><dt>総所得</dt><dd>{wallet?wallet.totalIncome.toLocaleString("ja-JP"):"—"}<small>轟</small></dd></div>
+        </dl>
+        {earningsError?<p className="earnings-error" role="status">{earningsError}</p>
+          :earningsLoading&&!wallet?<p className="earnings-note" role="status">取得中…</p>:null}
+        {pendingRewards>0&&<p className="earnings-note" role="status">{pendingRewards}件の記録を同期待ち</p>}
+        <p className="earnings-note">ログインして終了・保存した回数をKGS 11thに加算します。</p>
+      </>:<div className="earnings-guest"><p>ログインして1回につき1,000轟</p>
+        <button type="button" className="settings-outline" onClick={onLogin}>ログイン</button></div>}
     </section>
     <section className="settings-section">
       <h2>トレーニング</h2>
@@ -213,6 +238,6 @@ export function SettingsPage({member,sound,onSoundChange,onLogin,onLogout,onClea
         <button type="button" className="settings-outline" onClick={onClear} disabled={sessionCount===0}>削除</button>
       </div>
     </section>
-    <p className="settings-privacy">カメラ映像は端末内で処理します。記録は現在の端末のみに保存され、ほかの端末とは同期されません。</p>
+    <p className="settings-privacy">カメラ映像は端末内で処理します。詳細な履歴はこの端末に保存し、回数の集計と報酬用の記録だけをKGS 11thに同期します。</p>
   </>;
 }
