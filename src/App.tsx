@@ -323,14 +323,16 @@ export default function App() {
       lastSpoken.current = counter.current.snapshot().count;
       if (measuring && startedAt.current === null) startedAt.current = Date.now();
       setStatus("running");
-      let lastTime = -1;
       let lastFrame = 0;
       const tick = () => {
         if (session !== generation.current) return;
         if (!paused.current && !document.hidden && video.readyState >= 2) {
           const now = performance.now();
-          if (video.currentTime !== lastTime && now - lastFrame >= 85) {
-            lastTime = video.currentTime; lastFrame = now;
+          // Live MediaStream.currentTime can stay fixed or advance in coarse
+          // steps in mobile WebViews. Use the monotonic inference throttle;
+          // a changing playback clock is not required to process camera frames.
+          if (now - lastFrame >= 85) {
+            lastFrame = now;
             try {
               const result = pose.detectForVideo(video, now);
               const landmarks = result.landmarks[0];
