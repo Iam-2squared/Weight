@@ -56,19 +56,25 @@ function visible(point: Landmark | undefined): point is Landmark {
   return (point.visibility ?? 1) >= MIN_VISIBILITY && (point.presence ?? 1) >= MIN_VISIBILITY;
 }
 
-function selectSide(points: readonly Landmark[]): { side: Side; joints: Landmark[] } | null {
+function selectSide(points: readonly Landmark[], activeSide: Side | null): { side: Side; joints: Landmark[] } | null {
   const candidates = (["left", "right"] as const).flatMap((side) => {
     const joints = JOINTS[side].map((index) => points[index]);
     if (!joints.every(visible)) return [];
     const score = joints.reduce((sum, point) => sum + (point.visibility ?? 1), 0);
     return [{ side, joints, score }];
   });
+  // The far-side arm/leg may be hidden in a lateral view. Keep following the
+  // same visible side instead of restarting a rep when confidence scores swap.
+  const active = candidates.find((candidate) => candidate.side === activeSide);
+  if (active) return active;
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0] ?? null;
 }
 
 /**
- * The rules deliberately require a visible lateral full-body pose.
+ * Only one lateral shoulder/elbow/wrist/hip/ankle chain needs to be visible.
+ * The opposite arm and leg may be occluded; joints from different sides are
+ * never combined, and a real tracking-side change starts a new rep.
  * This prevents counting arm waves made while standing, but does not
  * measure true chest-to-floor distance or certify exercise technique.
  */
@@ -108,7 +114,7 @@ export class PushupCounter {
       bodyAngle: null,
       tracked: false,
       validForm: false,
-      message: "全身が横から映るように設置してください",
+      message: "横から片側の肩・肘・手首・腰・足首を映してください",
     };
   }
 
@@ -124,15 +130,15 @@ export class PushupCounter {
     frameHeight: number,
   ): CounterSnapshot {
     if (!points || frameWidth <= 0 || frameHeight <= 0) {
-      return this.markMissing(timestamp, "全身が映る位置にカメラを調整してください");
+      return this.markMissing(timestamp, "片側の肩から足首が映る位置にカメラを調整してください");
     }
     // Reacquire a stable top pose after a long video/background gap.
     if (this.lastTrackedAt !== -Infinity && timestamp - this.lastTrackedAt > LOST_RESET_MS) {
       this.resetTracking();
     }
-    const selection = selectSide(points);
+    const selection = selectSide(points, this.activeSide);
     if (!selection) {
-      return this.markMissing(timestamp, "肩・肘・手首・腰・足首を画面に入れてください");
+      return this.markMissing(timestamp, "片側の肩・肘・手首・腰・足首を画面に入れてください");
     }
     const { side, joints } = selection;
     const [shoulder, elbow, wrist, hip, ankle] = joints;
@@ -149,7 +155,7 @@ export class PushupCounter {
       this.smoothedElbow === null ? rawElbow : this.smoothedElbow * 0.4 + rawElbow * 0.6;
     const angle = this.smoothedElbow;
 
-    // A horizontal full-body plank is required; portrait/video cropping can invalidate it.
+    // Check the visible side's body line; the opposite side is not required.
     const horizontalDistance = Math.abs((ankle.x - shoulder.x) * frameWidth);
     const verticalDistance = Math.abs((ankle.y - shoulder.y) * frameHeight);
     const isHorizontal = horizontalDistance >= verticalDistance * 1.25;
@@ -168,7 +174,7 @@ export class PushupCounter {
         tracked: true,
         validForm: false,
         message: !isHorizontal
-          ? "カメラを横向きにし、体全体を水平に映してください"
+          ? "カメラを横向きにし、片側の肩から足首を水平に映してください"
           : "腰を上げ下げせず、体をまっすぐに保ってください",
       };
     }

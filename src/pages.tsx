@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "./icons";
-import { LeaderboardLandscape, type RankMetric, type SharedRank } from "./LeaderboardLandscape";
+import type { SharedRank } from "./LeaderboardLandscape";
 import {
   japanDay, monthGrid, streakStats, trainingTotals,
   summariesByDay, type TrainingSession,
@@ -89,7 +89,7 @@ export function ChallengePage({sessions,onStart}: {sessions:TrainingSession[];on
       <div><span>最高連続</span><strong>{stats.bestStreak}<small>回</small></strong></div>
       <div><span>総合回数</span><strong>{stats.totalReps.toLocaleString("ja-JP")}<small>回</small></strong></div>
     </div>
-    <p className="micro-note">スマホを横向きに置き、全身が映る位置に固定してください。</p>
+    <p className="micro-note">スマホを横向きに固定し、片側の肩・肘・手首・腰・足首を映してください。奥側の手足は隠れていても大丈夫です。</p>
   </>;
 }
 
@@ -105,38 +105,44 @@ export interface RankingProps {
   onChallenge: ()=>void;
 }
 export function RankingPage({
-  sessions,member,entries,optedIn,loading,error,onRefresh,onLogin,onChallenge
+  sessions,member,entries,loading,error,onRefresh,onLogin
 }:RankingProps){
-  const [metric,setMetric]=useState<RankMetric>("bestStreak");
   const totals=trainingTotals(sessions);
-  const self=member?{memberId:member.id,name:member.name||"あなた",...totals}:
-    sessions.length?{memberId:"guest",name:"ゲスト",...totals}:null;
-  return <section className="ranking-immersive">
-    <LeaderboardLandscape entries={member?entries:[]} metric={metric} self={self} optedIn={optedIn}/>
-    <div className="ranking-floating-ui">
-      <div className="ranking-ui-title">
-        <div><span>PUSH UP / HEIGHT RANKING</span><h1>ランキング</h1></div>
-        <div className="ranking-ui-actions">
-          {member ? <button type="button" className="ranking-reload" disabled={loading}
-              onClick={onRefresh} aria-label="ランキングを更新">↻</button>
-            : <button type="button" className="ranking-login" onClick={onLogin}>ログイン</button>}
-        </div>
-      </div>
-      <div className="ranking-world-modes" role="tablist" aria-label="ランキングの種類">
-        <button role="tab" type="button" aria-selected={metric==="bestStreak"}
-          className={metric==="bestStreak"?"selected":""}
-          onClick={()=>setMetric("bestStreak")}>最高連続</button>
-        <button role="tab" type="button" aria-selected={metric==="totalReps"}
-          className={metric==="totalReps"?"selected":""}
-          onClick={()=>setMetric("totalReps")}>総合回数</button>
-      </div>
-      {error&&<p role="status" className="ranking-world-error">{error}</p>}
-      <div className="ranking-world-meta" aria-live="polite">
-        {member?(loading?"記録を同期中":entries.length+"人がランキングに表示"):"ゲストの記録"}
-        {sessions.length===0&&<button type="button" onClick={onChallenge}>計測する</button>}
-      </div>
-    </div>
-    <p className="ranking-gesture-hint">↔ ユーザー比較　　↕ ジムから月へ</p>
+  // Shared totals are authoritative. A local score that has not synced yet is
+  // shown separately without assigning it a shared rank.
+  const ranked=member?[...entries].sort((a,b)=>b.totalReps-a.totalReps ||
+    a.memberId.localeCompare(b.memberId)):[];
+  const local=member&&!ranked.some(entry=>entry.memberId===member.id)
+    ? {name:member.name,totalReps:totals.totalReps}
+    : !member&&sessions.length ? {name:"ゲスト",totalReps:totals.totalReps}:null;
+  return <section className="ranking-page" aria-labelledby="ranking-title">
+    <header className="ranking-heading">
+      <div><span className="section-eyebrow">TOTAL RANKING</span><h1 id="ranking-title">ランキング</h1></div>
+      {member ? <button type="button" className="ranking-refresh" disabled={loading}
+          onClick={onRefresh} aria-label="ランキングを更新">↻</button>
+        : <button type="button" className="ranking-sign-in" onClick={onLogin}>ログイン</button>}
+    </header>
+    {loading&&<p role="status" className="ranking-status">記録を同期中</p>}
+    {error&&<p role="status" className="ranking-error">{error}</p>}
+    <table className="ranking-table">
+      <caption>腕立て伏せの総回数ランキング</caption>
+      <colgroup><col className="ranking-rank-column"/><col/><col className="ranking-total-column"/></colgroup>
+      <thead><tr><th scope="col">順位</th><th scope="col">ユーザー名</th><th scope="col">総合回数</th></tr></thead>
+      <tbody>
+        {ranked.map((entry,index)=><tr key={entry.memberId}
+          className={entry.memberId===member?.id?"ranking-self":undefined}>
+          <td>{index+1}</td><th scope="row">{entry.name}</th>
+          <td>{entry.totalReps.toLocaleString("ja-JP")}<small>回</small></td>
+        </tr>)}
+        {local&&<tr className="ranking-self ranking-local">
+          <td aria-label="未ランキング">—</td><th scope="row">{local.name}</th>
+          <td>{local.totalReps.toLocaleString("ja-JP")}<small>回</small></td>
+        </tr>}
+        {ranked.length===0&&!local&&<tr><td colSpan={3} className="ranking-empty">
+          {member?"まだ記録がありません":"ログインするとランキングを表示できます"}
+        </td></tr>}
+      </tbody>
+    </table>
   </section>;
 }
 

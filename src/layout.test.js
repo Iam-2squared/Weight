@@ -48,7 +48,7 @@ describe("lightweight first paint", () => {
 
 
 describe("automatic member leaderboard", () => {
-  it("syncs every KGS login and keeps ranking guest-gated", () => {
+  it("syncs every KGS login without requiring a separate participation step", () => {
     const app=readFileSync(new URL("./App.tsx",import.meta.url),"utf8");
     const page=readFileSync(new URL("./pages.tsx",import.meta.url),"utf8");
     expect(app).toContain("void publishRanking(loadSessions(id),id)");
@@ -57,46 +57,23 @@ describe("automatic member leaderboard", () => {
     expect(page).not.toContain("退出する");
     expect(page).not.toContain("onPublish");
     expect(page).not.toContain("onLeave");
-    expect(page).toContain("entries={member?entries:[]}");
   });
 });
 
 
-describe("immersive two-axis shared rankings", () => {
-  it("removes landmark goal cards and fits the entire rank page inside iOS safe areas", () => {
+describe("ordinary total ranking layout", () => {
+  it("renders the table in normal page flow without tower scenery or fixed world scrolling", () => {
     const page = readFileSync(new URL("./pages.tsx", import.meta.url), "utf8");
     const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
-    const world = readFileSync(new URL("./LeaderboardLandscape.tsx", import.meta.url), "utf8");
-    expect(page).not.toContain('className="ranking-milestones"');
-    expect(page).toContain('className="ranking-immersive"');
-    expect(app).toContain('ranking-app-main');
-    expect(app).toContain('is-ranking');
-    expect(world).toContain('className="ranking-world-viewport"');
-    expect(world).toContain('className="ranking-world"');
-    expect(world).not.toContain('className="ranker-card"');
-    expect(block(".ranking-world-viewport")).toContain("overflow: auto");
-    expect(block(".ranking-app-main")).toContain("safe-area-inset-bottom");
-    expect(styles).toContain("touch-action: pan-x pan-y");
-  });
-  it("repeats one push-up silhouette using CSS instead of thousands of DOM elements", () => {
-    const world = readFileSync(new URL("./LeaderboardLandscape.tsx", import.meta.url), "utf8");
-    expect(world).toContain('className="world-person-stack"');
-    expect(world).toContain('className="world-stack-pattern"');
-    expect(styles).toContain('url("/ranking-scenes/pushup-person.svg")');
-    expect(styles).toContain("background-repeat: repeat-y");
-  });
-});
-
-describe("user-selected seamless ranking panorama", () => {
-  it("uses the uploaded image once across the entire world rather than separate image bands", () => {
-    const world = readFileSync(new URL("./LeaderboardLandscape.tsx", import.meta.url), "utf8");
-    expect(world).toContain('className="ranking-world-panorama"');
-    expect(world).not.toContain('className="ranking-world-backdrop"');
-    expect(world).not.toContain('className={"world-band');
-    expect(world).not.toContain("RANKING_SCENE_ASSETS");
-    expect(styles).toContain('url("/ranking-scenes/user-panorama.webp")');
-    expect(block(".ranking-world-panorama")).toContain("background-size: 100% 100%");
-    expect(block(".ranking-world-panorama")).toContain("background-repeat: no-repeat");
-    expect(block(".ranking-world-viewport")).toContain("overflow: auto");
+    expect(page).toContain('className="ranking-table"');
+    expect(page).not.toContain("<LeaderboardLandscape");
+    expect(page).not.toContain("HEIGHT RANKING");
+    expect(page).not.toContain("ジムから月へ");
+    expect(app).not.toContain("ranking-app-main");
+    expect(app).not.toContain("is-ranking");
+    expect(block(".ranking-table")).toContain("table-layout: fixed");
+    expect(block(".ranking-table tbody th")).toContain("overflow-wrap: anywhere");
+    expect(styles).not.toContain("/ranking-scenes/");
+    expect(styles).not.toContain(".ranking-world-viewport");
   });
 });

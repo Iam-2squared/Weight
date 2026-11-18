@@ -468,7 +468,7 @@ export default function App() {
     : null;
 
   return (
-    <div className={"app-shell" + (measuring ? " is-measuring" : "") + (!measuring && tab==="ranking" ? " is-ranking" : "")}>
+    <div className={"app-shell" + (measuring ? " is-measuring" : "")}>
       <header className="app-header">
         {measuring ? (
           <>
@@ -500,7 +500,7 @@ export default function App() {
             </svg>
             <div>
               <strong>横向き！</strong>
-              <span>スマホを横にして全身を映そう</span>
+              <span>スマホを横にして、体の片側を映そう</span>
             </div>
           </aside>
           <section className="workout measuring-workout" aria-label="腕立て伏せ計測">
@@ -532,11 +532,11 @@ export default function App() {
               <button type="button" className="finish-action" onClick={finishMeasurement}>終了して保存</button>
             </div>
           </section>
-          <p className="measure-hint">カメラを横向きに固定して全身を映してください</p>
+          <p className="measure-hint">横から片側の肩・肘・手首・腰・足首を映してください。奥側の手足は隠れていても大丈夫です。</p>
         </main>
       ) : (
-        <main className={"app-main tabs-main" + (tab==="ranking"?" ranking-app-main":"")}>
-          <div className={"tab-content" + (tab==="ranking"?" ranking-tab-content":"")} key={tab}>
+        <main className="app-main tabs-main">
+          <div className="tab-content" key={tab}>
             {tab==="daily" && <DailyPage sessions={sessions} onChallenge={()=>setTab("challenge")}/>}
             {tab==="challenge" && <ChallengePage sessions={sessions} onStart={enterMeasurement}/>}
             {tab==="ranking" && <RankingPage sessions={sessions} member={member}
