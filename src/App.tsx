@@ -493,6 +493,17 @@ export default function App() {
             <span className="section-eyebrow">LIVE COUNTER</span>
             <h1>腕立て伏せ</h1>
           </div>
+          <aside className="orientation-warning" role="status" aria-label="スマホを横向きにしてください">
+            <svg className="orientation-sign" viewBox="0 0 72 68" width="62" height="60" aria-hidden="true">
+              <path d="M36 3 Q38 3 40 7 L69 57 Q72 63 64 65 H8 Q0 65 3 57 L32 7 Q34 3 36 3 Z" fill="#F8CC30" stroke="#4D3C07" strokeWidth="3.2" strokeLinejoin="round"/>
+              <path d="M36 21 V42" stroke="#4D3C07" strokeWidth="6" strokeLinecap="round"/>
+              <circle cx="36" cy="53" r="3.4" fill="#4D3C07"/>
+            </svg>
+            <div>
+              <strong>横向き！</strong>
+              <span>スマホを横にして、正面から肩・肘・手首を映そう</span>
+            </div>
+          </aside>
           <aside className="capture-guide" aria-label="正面から撮影">
             <Icon name="user" size={24}/>
             <span>正面から肩・肘・手首を映してください</span>
@@ -526,7 +537,7 @@ export default function App() {
               <button type="button" className="finish-action" onClick={finishMeasurement}>終了して保存</button>
             </div>
           </section>
-          <p className="measure-hint">スマホを体の正面、床の近くに固定してください。足や腰は映っていなくても大丈夫です。</p>
+          <p className="measure-hint">スマホを横向きにして体の正面、床の近くに固定してください。足や腰は映っていなくても大丈夫です。</p>
         </main>
       ) : (
         <main className="app-main tabs-main">

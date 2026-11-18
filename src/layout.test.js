@@ -30,10 +30,17 @@ describe("front-facing measurement guidance", () => {
     expect(app).toContain('className="capture-guide"');
     expect(app).toContain('useState<Facing>("user")');
     expect(app).toContain("正面から肩・肘・手首を映してください");
-    expect(app).not.toContain("横向き！");
     expect(app).not.toContain("肩・肘・手首・腰・足首");
     expect(block(".capture-guide")).toContain("display: flex");
     expect(styles).toContain("min-height: 245px");
+  });
+  it("encourages a horizontal phone in portrait without changing frontal recognition", () => {
+    const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    expect(app).toContain('className="orientation-warning"');
+    expect(app).toContain("<strong>横向き！</strong>");
+    expect(app).toContain("スマホを横にして、正面から肩・肘・手首を映そう");
+    expect(block(".orientation-warning")).toContain("display: none");
+    expect(styles).toContain("@media (max-width: 900px) and (orientation: portrait)");
   });
 });
 

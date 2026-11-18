@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { Icon } from "./icons";
 import type { SharedRank } from "./LeaderboardLandscape";
 import {
@@ -89,7 +89,7 @@ export function ChallengePage({sessions,onStart}: {sessions:TrainingSession[];on
       <div><span>最高連続</span><strong>{stats.bestStreak}<small>回</small></strong></div>
       <div><span>総合回数</span><strong>{stats.totalReps.toLocaleString("ja-JP")}<small>回</small></strong></div>
     </div>
-    <p className="micro-note">スマホを体の正面、床の近くに固定し、肩・肘・手首を映してください。足や腰は映っていなくても大丈夫です。</p>
+    <p className="micro-note">スマホを横向きにして体の正面、床の近くに固定し、肩・肘・手首を映してください。足や腰は映っていなくても大丈夫です。</p>
   </>;
 }
 
@@ -104,45 +104,75 @@ export interface RankingProps {
   onLogin: ()=>void;
   onChallenge: ()=>void;
 }
+export type RankingMetric = "totalReps" | "bestStreak";
+const rankingMetrics: Record<RankingMetric, {label:string;caption:string}> = {
+  totalReps: {label:"総合回数",caption:"腕立て伏せの総合回数ランキング"},
+  bestStreak: {label:"連続回数",caption:"腕立て伏せの最高連続回数ランキング"},
+};
+
+export function RankingTable({sessions,member,entries,metric}:
+  Pick<RankingProps,"sessions"|"member"|"entries"> & {metric:RankingMetric}) {
+  const totals=trainingTotals(sessions);
+  // Shared scores are authoritative. A local score that has not synced yet is
+  // shown separately without assigning it a shared rank.
+  const ranked=member?[...entries].sort((a,b)=>b[metric]-a[metric] ||
+    a.memberId.localeCompare(b.memberId)):[];
+  const local=member&&!ranked.some(entry=>entry.memberId===member.id)
+    ? {name:member.name,...totals}
+    : !member&&sessions.length ? {name:"ゲスト",...totals}:null;
+  return <table className="ranking-table">
+    <caption>{rankingMetrics[metric].caption}</caption>
+    <colgroup><col className="ranking-rank-column"/><col/><col className="ranking-total-column"/></colgroup>
+    <thead><tr><th scope="col">順位</th><th scope="col">ユーザー名</th><th scope="col">{rankingMetrics[metric].label}</th></tr></thead>
+    <tbody>
+      {ranked.map((entry,index)=><tr key={entry.memberId}
+        className={entry.memberId===member?.id?"ranking-self":undefined}>
+        <td>{index+1}</td><th scope="row">{entry.name}</th>
+        <td>{entry[metric].toLocaleString("ja-JP")}<small>回</small></td>
+      </tr>)}
+      {local&&<tr className="ranking-self ranking-local">
+        <td aria-label="未ランキング">—</td><th scope="row">{local.name}</th>
+        <td>{local[metric].toLocaleString("ja-JP")}<small>回</small></td>
+      </tr>}
+      {ranked.length===0&&!local&&<tr><td colSpan={3} className="ranking-empty">
+        {member?"まだ記録がありません":"ログインするとランキングを表示できます"}
+      </td></tr>}
+    </tbody>
+  </table>;
+}
+
 export function RankingPage({
   sessions,member,entries,loading,error,onRefresh,onLogin
 }:RankingProps){
-  const totals=trainingTotals(sessions);
-  // Shared totals are authoritative. A local score that has not synced yet is
-  // shown separately without assigning it a shared rank.
-  const ranked=member?[...entries].sort((a,b)=>b.totalReps-a.totalReps ||
-    a.memberId.localeCompare(b.memberId)):[];
-  const local=member&&!ranked.some(entry=>entry.memberId===member.id)
-    ? {name:member.name,totalReps:totals.totalReps}
-    : !member&&sessions.length ? {name:"ゲスト",totalReps:totals.totalReps}:null;
+  const [metric,setMetric]=useState<RankingMetric>("totalReps");
+  const onMetricKey=(event:KeyboardEvent<HTMLDivElement>)=>{
+    let next:RankingMetric;
+    if(event.key==="ArrowLeft"||event.key==="ArrowRight")next=metric==="totalReps"?"bestStreak":"totalReps";
+    else if(event.key==="Home")next="totalReps";
+    else if(event.key==="End")next="bestStreak";
+    else return;
+    event.preventDefault();
+    setMetric(next);
+    event.currentTarget.querySelector<HTMLButtonElement>(`#ranking-tab-${next}`)?.focus();
+  };
   return <section className="ranking-page" aria-labelledby="ranking-title">
     <header className="ranking-heading">
-      <div><span className="section-eyebrow">TOTAL RANKING</span><h1 id="ranking-title">ランキング</h1></div>
+      <div><span className="section-eyebrow">PUSH UP / RANKING</span><h1 id="ranking-title">ランキング</h1></div>
       {member ? <button type="button" className="ranking-refresh" disabled={loading}
           onClick={onRefresh} aria-label="ランキングを更新">↻</button>
         : <button type="button" className="ranking-sign-in" onClick={onLogin}>ログイン</button>}
     </header>
+    <div className="ranking-modes" role="tablist" aria-label="ランキングの種類" onKeyDown={onMetricKey}>
+      {(["totalReps","bestStreak"] as const).map(value=><button key={value}
+        type="button" role="tab" className="ranking-mode" id={`ranking-tab-${value}`}
+        aria-controls="ranking-panel" aria-selected={metric===value} tabIndex={metric===value?0:-1}
+        onClick={()=>setMetric(value)}>{rankingMetrics[value].label}</button>)}
+    </div>
     {loading&&<p role="status" className="ranking-status">記録を同期中</p>}
     {error&&<p role="status" className="ranking-error">{error}</p>}
-    <table className="ranking-table">
-      <caption>腕立て伏せの総回数ランキング</caption>
-      <colgroup><col className="ranking-rank-column"/><col/><col className="ranking-total-column"/></colgroup>
-      <thead><tr><th scope="col">順位</th><th scope="col">ユーザー名</th><th scope="col">総合回数</th></tr></thead>
-      <tbody>
-        {ranked.map((entry,index)=><tr key={entry.memberId}
-          className={entry.memberId===member?.id?"ranking-self":undefined}>
-          <td>{index+1}</td><th scope="row">{entry.name}</th>
-          <td>{entry.totalReps.toLocaleString("ja-JP")}<small>回</small></td>
-        </tr>)}
-        {local&&<tr className="ranking-self ranking-local">
-          <td aria-label="未ランキング">—</td><th scope="row">{local.name}</th>
-          <td>{local.totalReps.toLocaleString("ja-JP")}<small>回</small></td>
-        </tr>}
-        {ranked.length===0&&!local&&<tr><td colSpan={3} className="ranking-empty">
-          {member?"まだ記録がありません":"ログインするとランキングを表示できます"}
-        </td></tr>}
-      </tbody>
-    </table>
+    <div role="tabpanel" id="ranking-panel" aria-labelledby={`ranking-tab-${metric}`} tabIndex={0}>
+      <RankingTable sessions={sessions} member={member} entries={entries} metric={metric}/>
+    </div>
   </section>;
 }
 

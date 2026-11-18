@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RankingPage, type RankingProps } from "./pages";
+import { RankingPage, RankingTable, type RankingMetric, type RankingProps } from "./pages";
 import type { SharedRank } from "./LeaderboardLandscape";
 
 const member = { id: "self", name: "本人の名前" };
@@ -12,6 +12,9 @@ const defaults: RankingProps = {
 function render(props: Partial<RankingProps> = {}) {
   return renderToStaticMarkup(createElement(RankingPage, { ...defaults, ...props }));
 }
+function renderTable(metric:RankingMetric,props:Partial<RankingProps>={}) {
+  return renderToStaticMarkup(createElement(RankingTable,{...defaults,...props,metric}));
+}
 function tableRows(html: string) {
   const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? "";
   return [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)].map(row =>
@@ -21,7 +24,7 @@ function tableRows(html: string) {
 const session = { id: "session-001", reps: 200, bestStreak: 100,
   endedAt: "2026-11-18T01:00:00.000Z", durationSec: 500 };
 
-describe("simple total ranking", () => {
+describe("total and highest-streak rankings", () => {
   it("ranks only by total repetitions and uses member ID for ties, not best streak", () => {
     const entries: SharedRank[] = [
       { memberId: "bbb", name: "同点B", totalReps: 1200, bestStreak: 100 },
@@ -38,7 +41,43 @@ describe("simple total ranking", () => {
     expect(entries).toEqual(before);
     expect(html.match(/scope="col"/g)).toHaveLength(3);
     expect(html).toContain(">総合回数</th>");
-    expect(html).not.toMatch(/最高連続|height|ranking-world|ranking-scenes|role="tab"|あなた/);
+    expect(html).not.toMatch(/height|ranking-world|ranking-scenes|あなた/);
+    expect(html.match(/role="tab"/g)).toHaveLength(2);
+    expect(html).toContain('id="ranking-tab-totalReps" aria-controls="ranking-panel" aria-selected="true" tabindex="0"');
+    expect(html).toContain('id="ranking-tab-bestStreak" aria-controls="ranking-panel" aria-selected="false" tabindex="-1"');
+    expect(html).toContain('aria-labelledby="ranking-tab-totalReps"');
+  });
+
+  it("ranks highest consecutive records independently of total repetitions, including deterministic ties", () => {
+    const entries:SharedRank[]=[
+      {memberId:"ccc",name:"同連続C",totalReps:900,bestStreak:30},
+      {memberId:"aaa",name:"総合最多",totalReps:2000,bestStreak:2},
+      {memberId:member.id,name:member.name,totalReps:100,bestStreak:10},
+      {memberId:"bbb",name:"同連続B",totalReps:50,bestStreak:30},
+    ];
+    const before=structuredClone(entries);
+    const html=renderTable("bestStreak",{entries,sessions:[session]});
+    expect(tableRows(html)).toEqual([
+      ["1","同連続B","30回"],["2","同連続C","30回"],
+      ["3",member.name,"10回"],["4","総合最多","2回"],
+    ]);
+    expect(entries).toEqual(before);
+    expect(html).toContain(">連続回数</th>");
+    expect(html).toContain("腕立て伏せの最高連続回数ランキング");
+  });
+
+  it("uses the best saved streak rather than adding streaks together for an unsynced local record", () => {
+    const sessions=[session,{...session,id:"second-session",reps:80,bestStreak:8}];
+    expect(tableRows(renderTable("bestStreak",{sessions}))).toEqual([["—",member.name,"100回"]]);
+    expect(tableRows(renderTable("totalReps",{sessions}))).toEqual([["—",member.name,"280回"]]);
+  });
+
+  it("does not expose other members when a guest selects the consecutive ranking", () => {
+    const html=renderTable("bestStreak",{member:null,sessions:[session],entries:[
+      {memberId:"private",name:"非公開のユーザー",totalReps:900,bestStreak:500},
+    ]});
+    expect(tableRows(html)).toEqual([["—","ゲスト","100回"]]);
+    expect(html).not.toContain("非公開のユーザー");
   });
 
   it("shows a local unsynced record without inventing a shared rank", () => {
